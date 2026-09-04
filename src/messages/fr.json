@@ -40,7 +40,7 @@
   },
   "App": {
     "description": "Améliorer les annotations d'images grâce au crowdsourcing et à l'IA générative",
-    "title": "OntoLearn AI Annotator"
+    "title": "OntoLearnAI Annotator"
   },
   "Category": {
     "Create": {
@@ -101,7 +101,7 @@
     "subtitle": "Améliorer les annotations d'images grâce au crowdsourcing et à l'IA générative",
     "time": "Adapté à votre rythme",
     "timeDescription": "Les tâches sont assignés automatiquement selon les disponibilités des annotateurs.",
-    "title": "OntoLearn AI Annotator",
+    "title": "OntoLearnAI Annotator",
     "viewSource": "Voir le code source"
   },
   "Icons": {
@@ -167,7 +167,7 @@
       "settings": "Paramètres",
       "tasks": "Tâches",
       "annotations": "Annotations",
-      "title": "OntoLearn AI Annotator",
+      "title": "OntoLearnAI Annotator",
       "toggleNavigation": "Afficher/Masquer la navigation"
     },
     "Icon": {
