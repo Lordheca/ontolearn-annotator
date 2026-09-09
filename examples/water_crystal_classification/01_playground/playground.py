@@ -10,13 +10,16 @@ from PIL import Image
 model = tf.keras.models.load_model("/app/model.keras")
 platformUrl = os.environ["PLATFORM_URL"]
 projectId = os.environ["PROJECT_ID"]
+apiKey = os.environ["API_KEY"]              
+headers = {"Authorization": f"Bearer {apiKey}"}  
 
 print(platformUrl)
 
 while True:
     try:
         response = requests.get(
-            f"{platformUrl}/api/v1/projects/{projectId}/playground-tasks?status=PENDING"
+            f"{platformUrl}/api/v1/projects/{projectId}/playground-tasks?status=PENDING",
+            headers=headers,
         )
         data = response.json()
         # In data, input is a json object with a key 'file' containing the URL of the file to predict
@@ -27,6 +30,7 @@ while True:
             requests.patch(
                 f"{platformUrl}/api/v1/projects/{projectId}/playground-tasks/{task_id}",
                 data=json.dumps({"status": "PROCESSING"}),
+                headers=headers,
             )
 
             filepath = task["input"]["file"]
@@ -85,6 +89,7 @@ while True:
             requests.patch(
                 f"{platformUrl}/api/v1/projects/{projectId}/playground-tasks/{task_id}",
                 data=json.dumps(body),
+                headers=headers,
             )
     except Exception as e:
         print(e)

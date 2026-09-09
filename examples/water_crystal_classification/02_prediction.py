@@ -2,6 +2,7 @@ import tensorflow as tf
 import tensorflow_datasets as tfds
 import numpy as np
 import requests
+import os
 
 # Load the model
 model = tf.keras.models.load_model("model.keras")
@@ -45,6 +46,8 @@ for data in unlabelled_ds:
     i += 1
 
 print(least_confident)
+apiKey = os.environ["API_KEY"]  
+headers = {"Authorization": f"Bearer {apiKey}"}  
 project_id = "clzhtmd6x0002fmyrawopx2nm"
 for data in least_confident:
     try:
@@ -58,6 +61,7 @@ for data in least_confident:
                 },
                 "type": "image_classification",
             },
+            headers=headers,
         )
         if response.status_code != 200:
             print(response.status_code)

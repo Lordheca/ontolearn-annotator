@@ -1,5 +1,7 @@
 import { z } from "zod";
 import prisma from "@/lib/prisma";
+import { checkPermission, checkPermissionForApiKey } from "@/lib/abac-client";
+import { checkAccessOrRespond } from "@/lib/abac-route-guard";
 
 type Props = {
     params: {
@@ -12,6 +14,12 @@ export async function GET(
     request: Request,
     { params } : Props
 ) {
+
+    const denied = await checkAccessOrRespond(() =>
+        checkPermission(params.projectId, "playground:read")
+    ); 
+    if (denied) return denied;
+
     const playground = await prisma.playgroundTask.findUnique({
         where: {
             id: params.id,
@@ -39,6 +47,12 @@ export async function PATCH(
     request: Request,
     { params } : Props
 ) {
+
+    const denied = await checkAccessOrRespond(() =>
+        checkPermissionForApiKey(request, params.projectId, "playground:write")
+    ); 
+    if (denied) return denied;
+    
     const schema = z.object({
         output: z.any(),
         status: z.enum(["PENDING", "PROCESSING", "FAILED", "COMPLETED"])

@@ -88,6 +88,11 @@
       "uploadedAt": "Uploaded At"
     }
   },
+  "Errors": {
+    "description": "We couldn't load this page. This is usually temporary — please try again in a moment.",
+    "retry": "Try again",
+    "title": "Something went wrong"
+  },
   "Home": {
     "activeLearning": "Active learning",
     "activeLearningDescription": "Reduce the number of annotations required with active learning",

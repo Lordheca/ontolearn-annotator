@@ -1,5 +1,8 @@
 import { SourceStatus } from "@prisma/client";
 import { z } from "zod";
+import prisma from "@/lib/prisma";                      
+import { checkPermissionForApiKey } from "@/lib/abac-client";
+import { checkAccessOrRespond } from "@/lib/abac-route-guard";
 
 type Props = {
     params: {
@@ -14,6 +17,12 @@ const statusInfoSchema = z.object({
 })
 
 export async function PATCH(request: Request, { params } : Props) {
+
+    const denied = await checkAccessOrRespond(() => 
+        checkPermissionForApiKey(request, params.projectId, "source:write")
+    ); 
+    if (denied) return denied;
+    
     const schema = z.object({
         name: z.string().optional(),
         status: z.nativeEnum(SourceStatus).optional(),

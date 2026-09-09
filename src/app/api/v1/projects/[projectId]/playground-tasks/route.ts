@@ -1,6 +1,8 @@
 import prisma from "@/lib/prisma";
 import { PlaygroundTaskStatus } from "@prisma/client";
 import { NextRequest } from "next/server";
+import { checkPermissionForApiKey } from "@/lib/abac-client";
+import { checkAccessOrRespond } from "@/lib/abac-route-guard";
 
 type Props = {
     params: {
@@ -9,6 +11,11 @@ type Props = {
 };
 
 export async function GET(request: NextRequest, { params } : Props) {
+
+    const denied = await checkAccessOrRespond(() =>
+        checkPermissionForApiKey(request, params.projectId, "playground:read")
+    ); 
+    if (denied) return denied;
 
     // Check if the project exists
     const project = await prisma.project.findUnique({

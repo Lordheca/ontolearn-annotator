@@ -87,6 +87,11 @@
       "uploadedAt": "オンライン公開日"
     }
   },
+  "Errors": {
+    "description": "このページを読み込めませんでした。通常は一時的な問題です。しばらくしてからもう一度お試しください。",
+    "retry": "再試行",
+    "title": "問題が発生しました"
+  },
   "Home": {
     "activeLearning": "アクティブラーニング",
     "activeLearningDescription": "能動学習で必要な注釈の数を減らす。",

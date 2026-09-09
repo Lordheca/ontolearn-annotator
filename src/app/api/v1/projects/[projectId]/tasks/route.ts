@@ -1,6 +1,8 @@
 import { TaskStatus } from "@prisma/client";
 import { z } from "zod";
 import prisma from "@/lib/prisma";
+import { checkPermissionForApiKey } from "@/lib/abac-client";
+import { checkAccessOrRespond } from "@/lib/abac-route-guard";
 
 type Props = {
   params: {
@@ -9,6 +11,12 @@ type Props = {
 };
 
 export async function POST(request: Request, { params }: Props) {
+
+  const denied = await checkAccessOrRespond(() =>
+    checkPermissionForApiKey(request, params.projectId, "task:write")
+  ); 
+  if (denied) return denied;
+  
   const schema = z.object({
     input: z.any(),
     type: z.string(),

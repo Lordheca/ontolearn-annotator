@@ -11,6 +11,8 @@ import shutil
 
 platformUrl = os.environ["PLATFORM_URL"]
 projectId = os.environ["PROJECT_ID"]
+apiKey = os.environ["API_KEY"]              
+headers = {"Authorization": f"Bearer {apiKey}"}  
 
 
 def send_error(source_id, message):
@@ -18,13 +20,15 @@ def send_error(source_id, message):
     requests.patch(
         f"{platformUrl}/api/v1/projects/{projectId}/sources/{source_id}",
         data=json.dumps({"status": "FAILED", "statusInfo": {"message": message}}),
+        headers=headers,
     )
 
 
 while True:
     try:
         response = requests.get(
-            f"{platformUrl}/api/v1/projects/{projectId}/sources?status=PENDING"
+            f"{platformUrl}/api/v1/projects/{projectId}/sources?status=PENDING",
+            headers=headers
         )
         sources = response.json()
 
@@ -37,6 +41,7 @@ while True:
             # requests.patch(
             #     f"{platformUrl}/api/v1/projects/{projectId}/sources/{source['id']}",
             #     data=json.dumps({"status": "PROCESSING"}),
+            #     headers=headers,
             # )
 
             filepath = source["fields"][0]["value"]
@@ -114,6 +119,7 @@ while True:
                             "content": f"{uuid}.jpg",
                         }
                     ),
+                    headers=headers,
                 )
 
             # Remove source.zip and source folder
@@ -128,6 +134,7 @@ while True:
                         "statusInfo": {"problems": problems},
                     }
                 ),
+                headers=headers
             )
 
     except Exception as e:

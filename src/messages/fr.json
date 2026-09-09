@@ -88,6 +88,11 @@
       "uploadedAt": "Date de mise en ligne"
     }
   },
+  "Errors": {
+    "description": "Nous n'avons pas pu charger cette page. C'est généralement temporaire — veuillez réessayer dans un instant.",
+    "retry": "Réessayer",
+    "title": "Une erreur s'est produite"
+  },
   "Home": {
     "activeLearning": "Apprentissage actif",
     "activeLearningDescription": "Réduisez le nombre d'annotations nécessaires avec l'apprentissage actif",

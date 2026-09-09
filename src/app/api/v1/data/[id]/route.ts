@@ -1,5 +1,7 @@
 import prisma from "@/lib/prisma";
 import { z } from "zod";
+import { checkPermissionForApiKey } from "@/lib/abac-client";
+import { checkAccessOrRespond } from "@/lib/abac-route-guard";
 
 export async function PATCH(
     request: Request,
@@ -38,7 +40,13 @@ export async function PATCH(
             },
         });
     }
+    
+    const denied = await checkAccessOrRespond(() => 
+        checkPermissionForApiKey(request,existingData.projectId, "data:write")
+    ); 
 
+    if (denied) return denied;
+    
     const updatedData = await prisma.data.update({
         where: {
             id: params.id,
