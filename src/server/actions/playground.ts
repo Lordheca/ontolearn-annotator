@@ -26,7 +26,7 @@ export const uploadPlayground = canWritePlayground
     // (ABAC-gated) exists. The stored key has no leading slash from here on: it is a
     // storage key, not a URL a browser can hit directly.
     const storageKey = `uploads/playground/${fileName}`;
-    const uploadDir = path.join(process.cwd(), "storage", "uploads", "playgrounds");
+    const uploadDir = path.join(process.cwd(), "storage", "uploads", "playground");
     if (!existsSync(uploadDir)){
       mkdirSync(uploadDir, { recursive: true});
     }

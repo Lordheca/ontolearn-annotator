@@ -1,0 +1,32 @@
+feat(api): add authenticated /api/files/[id] proxy route (Phase 1, Step 2)
+
+Adds a server-side proxy so a DataFile/PlaygroundTask's image is served
+through ABAC instead of a public /uploads/.../storage/uploads/... URL —
+closes the access-control half of the file-storage gap tracked in the
+File Storage Remediation Plan (§6, Step 2), alongside the /api/v1 auth
+fix it reuses.
+
+- New route: src/app/api/files/[id]/route.ts. Resolves `id` to its
+  owning DataFile or PlaygroundTask, then gates the read behind
+  checkAccessOrRespond(() => checkPermission(projectId, "data:read"))
+  (or "playground:read") — the same helper already wired into the
+  eight /api/v1 routes — before streaming the file from disk.
+- Fail-closed outage handling comes for free from that helper: an
+  ABAC/OPA outage surfaces as 503 (AbacUnreachableError), not 401 —
+  same distinction the /api/v1 routes already make.
+-Split of folder Uploads for understanding of tests purposes. Data images 
+  are stored at storage/uploads/manual while Playground Tasks are stored at 
+  storage/uploads/playground
+
+Verified 2026-09-11 against the local stack, two rounds against three
+files:
+- No Authorization header -> 401
+- Valid API key scoped to a different project -> 401
+- Valid API key scoped to the file's own project -> 200, correct image
+  bytes (confirmed with `file`)
+- abac_nii-opa container stopped -> 503, not 401 (one round returned a
+  cached 200 instead, from checkPermissionForSubject's in-process
+  permission cache already holding an allow for that key/project/action
+  from the prior round — re-run with a fresh action forced a 503)
+
+Co-Authored-By: Claude Sonnet 5 

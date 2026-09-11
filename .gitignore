@@ -51,3 +51,6 @@ public/img/projects/*
 /examples/*/env
 *.keras
 .env
+
+# File Storage Remediation Plan, Phase 1 Step 1: uploads now land outside public/
+/storage

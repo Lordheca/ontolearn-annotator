@@ -77,7 +77,7 @@ export const createData = authedProcedure
         // reachable only once Step 2's /api/files/[id] route (ABAC-gated) exists. filePath
         // is stored without a leading slash from here on: it is a storage key, not a URL a
         // browser can hit directly.
-        const uploadSubdir = destination === "MANUAL" ? "playground" : "";
+        const uploadSubdir = destination === "MANUAL" ? "manual" : "";
         const fullUploadPath = path.join(process.cwd(), "storage", "uploads", uploadSubdir);
         if (!existsSync(fullUploadPath)) {
             mkdirSync(fullUploadPath, { recursive: true });
