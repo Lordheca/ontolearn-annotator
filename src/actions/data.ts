@@ -67,10 +67,18 @@ export const createData = authedProcedure
 
 
         // Determine upload sub-directory based on destination. Empty for anything but
-        // MANUAL: "uploads" here was joined onto public/uploads, so those files landed in
-        // public/uploads/uploads and were stored as /uploads/uploads/<file>.
+        // MANUAL: "uploads" here was joined onto storage/uploads, so those files landed in
+        // storage/uploads/uploads and were stored as uploads/uploads/<file>.
+        //
+        // File Storage Remediation Plan, Phase 1 Step 1: this used to write into
+        // public/uploads, which Next.js serves statically to anyone with the URL, with no
+        // permission check at all. It now writes into storage/uploads instead -- a
+        // directory outside public/, not served by Next.js -- so a DataFile's bytes are
+        // reachable only once Step 2's /api/files/[id] route (ABAC-gated) exists. filePath
+        // is stored without a leading slash from here on: it is a storage key, not a URL a
+        // browser can hit directly.
         const uploadSubdir = destination === "MANUAL" ? "playground" : "";
-        const fullUploadPath = path.join(process.cwd(), "public", "uploads", uploadSubdir);
+        const fullUploadPath = path.join(process.cwd(), "storage", "uploads", uploadSubdir);
         if (!existsSync(fullUploadPath)) {
             mkdirSync(fullUploadPath, { recursive: true });
         }
@@ -99,10 +107,11 @@ export const createData = authedProcedure
                 uploadedFiles.push({
                     fieldId: field.id,
                     // Built conditionally so an empty sub-directory does not yield
-                    // a double slash.
+                    // a double slash. No leading slash: this is a storage key (see
+                    // note above), not a public URL.
                     filePath: uploadSubdir
-                        ? `/uploads/${uploadSubdir}/${fileName}`
-                        : `/uploads/${fileName}`,
+                        ? `uploads/${uploadSubdir}/${fileName}`
+                        : `uploads/${fileName}`,
                     fileName: file.name,
                     extension: extension || '',
                     isImage: isImage && !isZip

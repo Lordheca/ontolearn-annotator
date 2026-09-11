@@ -120,7 +120,7 @@ export async function checkPermission(
     
     if (!response.ok) {
       console.error(`ABAC request failed: ${response.status}`);
-      throw new AbacUnreachableError('ABAC service returned ${response.tsatus}');
+      throw new AbacUnreachableError(`ABAC service returned ${response.status}`);
     }
     
     const result = await response.json();
