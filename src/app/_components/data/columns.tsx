@@ -34,9 +34,12 @@ export const columns: ColumnDef<RecentDataFile>[] = [
         cell: ({ row }) => {
             return (
                 <Button variant="ghost" size="icon" asChild>
-                    {/* filePath is served straight from public/uploads. The previous
-                        /datasets/{projectId}/{content} target has no route and 404'd. */}
-                    <Link href={row.original.filePath} target="_blank" rel="noopener noreferrer" locale={false} download>
+                    {/* 
+                        File Storage Remediation Plan, Step 3: served through the
+                        authenticated /api/files/[id] proxy (Step 2) instead of the
+                        raw public/storage filePath.
+                     */}
+                    <Link href={`/api/files/${row.original.id}`} target="_blank" rel="noopener noreferrer" locale={false} download>
                         <Download className="h-4 w-4" />
                     </Link>
                 </Button>

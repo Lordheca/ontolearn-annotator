@@ -1,32 +1,29 @@
-feat(api): add authenticated /api/files/[id] proxy route (Phase 1, Step 2)
+feat(annotations): point image consumers at the authenticated /api/files/[id] proxy (Phase 1, Step 3)
 
-Adds a server-side proxy so a DataFile/PlaygroundTask's image is served
-through ABAC instead of a public /uploads/.../storage/uploads/... URL —
-closes the access-control half of the file-storage gap tracked in the
-File Storage Remediation Plan (§6, Step 2), alongside the /api/v1 auth
-fix it reuses.
+Three places still linked straight to DataFile.filePath — the raw,
+no-longer-public path Step 1 moved outside public/. Point them at the
+/api/files/[id] proxy from Step 2 instead, so they go through the same
+ABAC check as every other read path.
 
-- New route: src/app/api/files/[id]/route.ts. Resolves `id` to its
-  owning DataFile or PlaygroundTask, then gates the read behind
-  checkAccessOrRespond(() => checkPermission(projectId, "data:read"))
-  (or "playground:read") — the same helper already wired into the
-  eight /api/v1 routes — before streaming the file from disk.
-- Fail-closed outage handling comes for free from that helper: an
-  ABAC/OPA outage surfaces as 503 (AbacUnreachableError), not 401 —
-  same distinction the /api/v1 routes already make.
--Split of folder Uploads for understanding of tests purposes. Data images 
-  are stored at storage/uploads/manual while Playground Tasks are stored at 
-  storage/uploads/playground
+- src/app/projects/[slug]/annotations/[dataFileId]/page.tsx:
+  WorkflowAnnotator's imageUrl is now `/api/files/${dataFile.id}`
+  instead of dataFile.filePath.
+- src/app/_components/annotations/annotations-table-client.tsx: the
+  read-only AoiPreviewModal opened from "View" now takes
+  `/api/files/${df.id}` instead of df.filePath.
+- src/app/_components/data/columns.tsx: the Data table's download link
+  now points at `/api/files/${row.original.id}` instead of
+  row.original.filePath; updated the stale comment referencing the old
+  /datasets/{projectId}/{content} 404.
 
-Verified 2026-09-11 against the local stack, two rounds against three
-files:
-- No Authorization header -> 401
-- Valid API key scoped to a different project -> 401
-- Valid API key scoped to the file's own project -> 200, correct image
-  bytes (confirmed with `file`)
-- abac_nii-opa container stopped -> 503, not 401 (one round returned a
-  cached 200 instead, from checkPermissionForSubject's in-process
-  permission cache already holding an allow for that key/project/action
-  from the prior round — re-run with a fresh action forced a 503)
+None of these three send an Authorization header — the browser's
+session cookie carries the request, so /api/files/[id] falls back to
+checkPermission (not checkPermissionForApiKey), same as any other
+signed-in page.
 
-Co-Authored-By: Claude Sonnet 5 
+Verified 2026-09-14 against the local stack: annotation viewer loads
+the image for an existing MANUAL-destination DataFile; the Annotations
+table's View modal shows the correct image for a completed annotation;
+the Data table's download link downloads the file.
+
+Co-Authored-By: Claude Sonnet 5

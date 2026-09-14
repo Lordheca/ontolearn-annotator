@@ -87,7 +87,7 @@ export default async function AnnotateDataFilePage({ params }: { params: { slug:
         projectSlug={slug}
         dataFileId={dataFileId}
         userId={userId}
-        imageUrl={dataFile.filePath}
+        imageUrl={`/api/files/${dataFile.id}`} 
         workflowYaml={workflowYaml || undefined}
       />
       )}

@@ -442,7 +442,7 @@ export function AnnotationsTableClient({ slug, dataFiles }: Props) {
                                   {t("actions.view")}
                                 </Button>
                               }
-                              imageUrl={df.filePath || ""}
+                              imageUrl={`/api/files/${df.id}`}
                               aois={aois as any}
                               title={df.name || t("modal.title")}
                               annotationCount={df.annotations.length}
