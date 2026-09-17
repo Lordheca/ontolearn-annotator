@@ -44,11 +44,13 @@ while True:
             #     headers=headers,
             # )
 
-            filepath = source["fields"][0]["value"]
-            file = f"{platformUrl}/{filepath}"
+            source_field_id = source["fields"][0]["id"]
+            file = f"{platformUrl}/api/files/{source_field_id}"
 
-            # Download the file to disk
-            download = requests.get(file)
+            #Download the file to disk through the authenticated proxy (File
+            #Storage Remediation Plan, Step 4)
+            download = requests.get(file, headers = headers)
+            
             with open("source.zip", "wb") as f:
                 f.write(download.content)
 

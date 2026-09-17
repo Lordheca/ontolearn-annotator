@@ -119,14 +119,20 @@ export const createData = authedProcedure
             }
         }
 
+        const uploadedFileByFieldId = new Map(
+            uploadedFiles.map((f)=> [f.fieldId, f.filePath])
+        );
+
         const fields = sourceType.fields.map((field) => {
+            const value =
+                field.type === "FILE"
+                    ? uploadedFileByFieldId.get(field.id)!
+                    : (input[`fields[${field.id}]`] as string);
+
             return {
                 fieldId: field.id,
-                value: input[`fields[${field.id}]`], // Ensure this retrieves the correct value
-                field: {
-                    connect: { id: field.id }
-                }
-            }
+                value,
+            };
         });
 
         // Now we can create the data
@@ -136,6 +142,9 @@ export const createData = authedProcedure
                 sourceTypeId,
                 projectId: project.id,
                 status: "PENDING",
+                fields: {
+                    create: fields,
+                },
             }
         });
 

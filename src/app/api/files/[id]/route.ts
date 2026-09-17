@@ -90,7 +90,7 @@ function streamFile(storedPath: string, downloadName: string): Response {
 function checkReadAccess(
     request: Request,
     projectId: string,
-    action: "data:read" | "playground:read"
+    action: "data:read" | "playground:read" | "source:read"
 ): Promise<boolean> {
     const hasApiKey = request.headers.get("authorization") !== null;
     return hasApiKey
@@ -129,6 +129,25 @@ export async function GET(request: Request, { params }: Props) {
         if (denied) return denied;
 
         return streamFile(input.file, `${playgroundTask.id}${path.extname(input.file)}`);
+    }
+    // File Storage Remediation Plan, Step 4: upload.py downloads a Source's
+    // zip through this same proxy, authenticated with its project-scoped API
+    // key -- id here is the SourceField's own id (source.fields[0].id), not
+    // the Source's id, since a Source can in principle carry more than one
+    // field and only a FILE-type field has bytes to stream.
+    
+    const sourceField = await prisma.sourceField.findUnique({
+        where: { id: params.id },
+        include: { source: true, field: true },
+    });
+
+    if (sourceField && sourceField.field.type === "FILE") {
+        const denied = await checkAccessOrRespond(() =>
+            checkReadAccess(request, sourceField.source.projectId, "source:read")
+        );
+        if (denied) return denied;
+
+        return streamFile(sourceField.value, `${sourceField.id}${path.extname(sourceField.value)}`);
     }
 
     return notFound();

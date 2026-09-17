@@ -33,11 +33,11 @@ while True:
                 headers=headers,
             )
 
-            filepath = task["input"]["file"]
-            file = f"{platformUrl}/{filepath}"
+            file = f"{platformUrl}/api/files/{task_id}"
 
-            # Download the file
-            download = requests.get(file)
+            #Download the file through the authenticated proxy (File Storage
+            #Remediaion Plan, Step 4)
+            download = requests.get(file, headers = headers)
 
             # Resize the image (360, 240)
             target_width = 360

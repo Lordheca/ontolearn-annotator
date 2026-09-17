@@ -8,9 +8,9 @@ services:
     environment:
       PROJECT_ID: ${PROJECT_ID}
       PLATFORM_URL: ${PLATFORM_URL}
+      API_KEY: ${API_KEY}
     restart: always
     command: bash -c "python3 -u /app/playground.py"
-    network_mode: host
     deploy:
       resources:
         reservations:

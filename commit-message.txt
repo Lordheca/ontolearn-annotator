@@ -1,29 +1,34 @@
-feat(annotations): point image consumers at the authenticated /api/files/[id] proxy (Phase 1, Step 3)
+feat(ml-scripts): authenticate playground.py and upload.py file downloads via /api/files/[id] (Phase 1, Step 4)
 
-Three places still linked straight to DataFile.filePath — the raw,
-no-longer-public path Step 1 moved outside public/. Point them at the
-/api/files/[id] proxy from Step 2 instead, so they go through the same
-ABAC check as every other read path.
+Both ML worker scripts fetched their input file with a bare, unauthenticated
+requests.get() against the raw storage path -- the last unauthenticated read
+path left over from the Phase 1 access-control work (Steps 1-3). Both now
+send the same Authorization: Bearer <key> header they already build for
+their /api/v1 calls, and target {platformUrl}/api/files/{id} instead of the
+old raw path.
 
-- src/app/projects/[slug]/annotations/[dataFileId]/page.tsx:
-  WorkflowAnnotator's imageUrl is now `/api/files/${dataFile.id}`
-  instead of dataFile.filePath.
-- src/app/_components/annotations/annotations-table-client.tsx: the
-  read-only AoiPreviewModal opened from "View" now takes
-  `/api/files/${df.id}` instead of df.filePath.
-- src/app/_components/data/columns.tsx: the Data table's download link
-  now points at `/api/files/${row.original.id}` instead of
-  row.original.filePath; updated the stale comment referencing the old
-  /datasets/{projectId}/{content} 404.
+- 01_playground/playground.py: file download now hits
+  /api/files/{task_id} (the PlaygroundTask's own id -- the route already
+  resolves input.file from it, so no extra lookup is needed) with
+  headers=headers.
+- 02_upload/upload.py: file download now hits /api/files/{id} for the
+  Source's zip-file SourceField, same headers=headers pattern.
 
-None of these three send an Authorization header — the browser's
-session cookie carries the request, so /api/files/[id] falls back to
-checkPermission (not checkPermissionForApiKey), same as any other
-signed-in page.
+Verified 2026-09-17 against the local stack -- see "File Storage
+Remediation Plan -- OntoLearn Annotator", §18:
+- playground.py: full end-to-end run (poll -> PROCESSING -> download ->
+  GPU inference -> COMPLETED) against a real task, using a placeholder
+  test model (model.keras itself is still pending, tracked separately).
+  Download step independently re-checked: valid key -> 200 + correct
+  image bytes; no Authorization header -> 401; invalid key -> 401.
+- upload.py: end-to-end run against a real zip-file Source, confirmed
+  COMPLETED in Prisma Studio (the script prints nothing on its success
+  path). Download step independently re-checked against the Source's
+  SourceField: valid key -> 200 + correct zip bytes; no Authorization
+  header -> 401; invalid key -> 401.
 
-Verified 2026-09-14 against the local stack: annotation viewer loads
-the image for an existing MANUAL-destination DataFile; the Annotations
-table's View modal shows the correct image for a completed annotation;
-the Data table's download link downloads the file.
+Step 5 (migrating existing filePath/icon rows) is being skipped rather
+than marked done -- there are no legacy public/ rows to migrate, so the
+step doesn't apply. This closes Phase 1 of the plan.
 
 Co-Authored-By: Claude Sonnet 5
