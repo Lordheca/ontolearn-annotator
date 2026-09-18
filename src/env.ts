@@ -36,6 +36,15 @@ export const env = createEnv({
       (v) => v ? Number(v) : 10000,
       z.number().positive().default(10000) // max entries
     ),
+    S3_ENDPOINT: z.string().url(),
+    S3_BUCKET: z.string(),
+    S3_ACCESS_KEY: z.string(),
+    S3_SECRET_KEY: z.string(),
+    S3_REGION: z.string().default("us-east-1"),
+    S3_FORCE_PATH_STYLE: z.preprocess(
+      (v) => v === "true",
+      z.boolean().default(true) // MinIO needs path-style; real S3 doesn't
+    ),
   },
 
   /**
@@ -63,7 +72,13 @@ export const env = createEnv({
     ABAC_SERVER_URL: process.env.ABAC_SERVER_URL,
     ABAC_SECRET: process.env.ABAC_SECRET,
     ABAC_CACHE_TTL: process.env.ABAC_CACHE_TTL,
-    ABAC_CACHE_SIZE_LIMIT: process.env.ABAC_CACHE_SIZE_LIMIT
+    ABAC_CACHE_SIZE_LIMIT: process.env.ABAC_CACHE_SIZE_LIMIT,
+    S3_ENDPOINT: process.env.S3_ENDPOINT,
+    S3_BUCKET: process.env.S3_BUCKET,
+    S3_ACCESS_KEY: process.env.S3_ACCESS_KEY,
+    S3_SECRET_KEY: process.env.S3_SECRET_KEY,
+    S3_REGION: process.env.S3_REGION,
+    S3_FORCE_PATH_STYLE: process.env.S3_FORCE_PATH_STYLE
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially
