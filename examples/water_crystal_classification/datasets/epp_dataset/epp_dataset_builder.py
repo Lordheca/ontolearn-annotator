@@ -119,7 +119,7 @@ class Builder(tfds.core.GeneratorBasedBuilder):
         for img1, img2 in overlapping_images:
             tf.io.gfile.remove(image_folder_path / img1)
             with open(path / "5k_epp_dataset.csv") as f:
-                reader = csv.DictReader(f)
+                reader = csv.DictReader(f, delimiter=";")
                 rows = [row for row in reader]
                 for row in rows:
                     print(row, img1)
@@ -132,7 +132,7 @@ class Builder(tfds.core.GeneratorBasedBuilder):
 
         # Remove rows with missing images
         with open(path / "5k_epp_dataset.csv") as f:
-            reader = csv.DictReader(f)
+            reader = csv.DictReader(f, delimiter=";")
             rows = [row for row in reader]
             for row in rows:
                 if not tf.io.gfile.exists(image_folder_path / row['image_name']):
@@ -144,7 +144,7 @@ class Builder(tfds.core.GeneratorBasedBuilder):
 
         # Shuffle and separate in 80% train, 10% test, 10% validation
         with open(path / "5k_epp_dataset.csv") as f:
-            reader = csv.DictReader(f)
+            reader = csv.DictReader(f, delimeter=";")
             rows = [row for row in reader]
             random.shuffle(rows)
             total = len(rows)
@@ -175,7 +175,7 @@ class Builder(tfds.core.GeneratorBasedBuilder):
             self._initalize_dataset()
             
         with label_path.open() as f:
-          for row in csv.DictReader(f):
+          for row in csv.DictReader(f, delimiter=";"):
             image_id = row['image_name']
             # And yield (key, feature_dict)
             yield image_id, {
