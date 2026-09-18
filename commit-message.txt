@@ -1,29 +1,26 @@
-feat: add S3-compatible storage abstraction (Phase 2 Step 6)
+feat: add MinIO to docker-compose.yml (Phase 2 Step 7)
 
-File Storage Remediation Plan, Phase 2 Step 6. Adds the async storage
-layer that Step 8 will point the three current writeFileSync call
-sites at (src/actions/data.ts, src/actions/projects.ts,
-src/server/actions/playground.ts) -- this is what actually fixes the
-blocking-I/O half of TODO.md's "Real file storage" item, not just the
-access-control half Phase 1 already closed.
+File Storage Remediation Plan, Phase 2 Step 7. Adds the MinIO service
+Step 6's storage.ts talks to, so the local stack has an S3-compatible
+backend without relying on a loose, unmanaged container.
 
-- package.json / package-lock.json: add @aws-sdk/client-s3
-- src/lib/storage.ts: putObject(key, buffer, contentType),
-  getObjectStream(key), deleteObject(key), built on
-  @aws-sdk/client-s3. All three are async.
-- src/env.ts: S3_ENDPOINT, S3_BUCKET, S3_ACCESS_KEY, S3_SECRET_KEY,
-  S3_REGION, S3_FORCE_PATH_STYLE -- required for storage.ts to
-  compile. Formally in scope for Step 7 (MinIO/S3 config), pulled
-  forward here since storage.ts cannot be typed without them; no
-  docker-compose.yml service and no production wiring added yet --
-  that stays Step 7, out of scope for this commit.
-- src/lib/__tests__/storage.test.ts: round-trips a buffer through
-  putObject -> getObjectStream and asserts byte-for-byte equality;
-  confirms deleteObject actually removes the object (subsequent
-  getObjectStream rejects). Verified against a standalone local MinIO
-  container, ahead of Step 7's docker-compose.yml wiring.
+- docker-compose.yml: new minio service (quay.io/minio/minio -- not
+  minio/minio, which MinIO pulled from Docker Hub entirely), same
+  style as db (hardcoded dev credentials, volume under ./data/).
+  Lives in the base compose file, not docker-compose.dev.yml, since
+  MinIO is also needed for the self-hosted production deploy (§5.3)
+  -- the same reasoning that already put db there instead of the
+  dev-only override file.
 
-Not wired into any call site yet -- data.ts, projects.ts and
-playground.ts still write to local disk. That swap is Step 8.
+Not addressed here: the app service still has no environment:/
+env_file: block, so none of the server-side env vars (including the
+new S3_* ones) reach it when it runs containerized -- pre-existing
+gap (secrets baked into the image at build time), unrelated to this
+step.
+
+Verified end-to-end via start-local.sh (ABAC_NII repo): MinIO starts
+alongside db/maildev, the bucket is created, and npm run dev boots
+clean reading the new S3_* values -- see that repo's commit for the
+orchestration side.
 
 Co-Authored-By: Claude Sonnet 5 
