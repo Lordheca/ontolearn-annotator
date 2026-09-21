@@ -3,7 +3,7 @@
 import prisma from "@/lib/prisma";
 import { uploadImageInputSchema } from "@/lib/validation-schemas/project-image";
 import { canWriteSettings } from "@/lib/zsa-procedures";
-import fs from "fs";
+import { deleteObject, putObject } from "@/lib/storage";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -26,24 +26,30 @@ export const uploadImage = canWriteSettings
                 },
             });
 
-            // Remove old image from storage. Guarded: the file may be gone already
-            // (manual deletion, a wiped volume), and an unguarded unlink threw and
-            // failed the whole upload.
-            const previousIconPath = `${process.cwd()}/public/img/projects/${project.icon}`;
-            if (fs.existsSync(previousIconPath)) {
-                fs.unlinkSync(previousIconPath);
+            // Remove old image from the bucket. S3/MinIO's DeleteObject does not
+            // error on a missing key (unlike fs.unlinkSync, which threw and used
+            // to need the existsSync guard this replaces) -- the try/catch here
+            // is only for a genuine failure (network, credentials), not a
+            // does-it-exist check.
+            try {
+                await deleteObject(`icons/${project.icon}`);
+            } catch (error) {
+                console.error("Failed to delete old object icon from storage:", error);
             }
         }
 
-        // Save new image to storage
+        // Save new image to object storage. File Storage Remediation Plan,
+        // Phase 2 Step 8: the icon write moves off local disk along with the
+        // other two write sites -- §5.2 confirmed reads stay public, so it's
+        // now served through the unauthenticated /api/icons/[filename] route
+        // instead of a plain public/img/projects/ static file.
         const fileName = `${project.id}.png`;
-        const path = `${process.cwd()}/public/img/projects/${fileName}`;
         const icon: File = input.icon;
 
         try {
             const arrayBuffer = await icon.arrayBuffer();
-            const buffer = new Uint8Array(arrayBuffer);
-            fs.writeFileSync(path, buffer);
+            const buffer = Buffer.from(arrayBuffer);
+            await putObject(`icons/${fileName}`, buffer, icon.type || "image/png");
         } catch (error) {
             throw new Error("Failed to save icon");
         }

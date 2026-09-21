@@ -3,6 +3,8 @@ import { existsSync, readFileSync, statSync } from "fs";
 import prisma from "@/lib/prisma";
 import { checkPermission, checkPermissionForApiKey } from "@/lib/abac-client";
 import { checkAccessOrRespond } from "@/lib/abac-route-guard";
+import { Readable } from "stream";
+import { getObjectStream } from "@/lib/storage";
 
 // File Storage Remediation Plan, Phase 1 Step 2: the authenticated read path
 // that replaces the raw public/uploads and public/img/projects URLs closed
@@ -62,27 +64,49 @@ function notFound(): Response {
     });
 }
 
-function streamFile(storedPath: string, downloadName: string): Response {
+async function streamFile(storedPath: string, downloadName: string): Promise<Response> {
     const diskPath = resolveDiskPath(storedPath);
+    const ext = path.extname(diskPath).toLowerCase();
+    const contentType = CONTENT_TYPES[ext] || "application/octet-stream";
+    const headers = {
+        "content-type": contentType,
+        "content-disposition": `inline; filename="${downloadName.replace(/"/g, "")}"`,
+        "cache-control": "private, max-age=0, must-revalidate",
+    };
 
-    if (!existsSync(diskPath)) {
+    // §5.4 dual-read: rows written before Phase 2 (Step 8) still have their
+    // bytes on local disk -- either the old public/ path (leading slash) or
+    // the Phase-1 storage/ path (no leading slash, still on disk at that
+    // point). Disk is checked first so those rows keep working unchanged.
+    // A Phase-2 upload (Step 8 onward) never touches disk -- it exists only
+    // in the bucket -- so a miss here falls through to the object-storage
+    // branch below. Once §Step 9's backfill empties storage/ and
+    // public/uploads for good, every read will fall through to the bucket,
+    // and this disk branch can be deleted (§7).
+    if (existsSync(diskPath)) {
+            const stat = statSync(diskPath);
+            const buffer = readFileSync(diskPath);
+            return new Response(buffer, {
+                status: 200,
+                headers: { ...headers, "content-length": String(stat.size) },
+            });
+    }
+
+    // A leading-slash (pre-Step-1) value with nothing on disk is genuinely
+    // missing -- it was never a bucket key, so there's nothing to fetch.
+    if (storedPath.startsWith("/")) {
         return notFound();
     }
 
-    const stat = statSync(diskPath);
-    const ext = path.extname(diskPath).toLowerCase();
-    const contentType = CONTENT_TYPES[ext] || "application/octet-stream";
-    const buffer = readFileSync(diskPath);
-
-    return new Response(buffer, {
-        status: 200,
-        headers: {
-            "content-type": contentType,
-            "content-length": String(stat.size),
-            "content-disposition": `inline; filename="${downloadName.replace(/"/g, "")}"`,
-            "cache-control": "private, max-age=0, must-revalidate",
-        },
-    });
+    try {
+        const stream = await getObjectStream(storedPath);
+        return new Response(Readable.toWeb(stream) as unknown as ReadableStream, {
+            status: 200,
+            headers,
+        });
+    } catch {
+        return notFound();
+    }
 }
 
 // Session cookie when there's no Authorization header (browser UI, Step 3);

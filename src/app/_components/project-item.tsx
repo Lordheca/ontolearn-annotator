@@ -26,7 +26,7 @@ export function ProjectItem({
                 {project.icon ? (
                 <Image
                     // src={project.img}
-                    src={`/img/projects/${project.icon}`}
+                    src={`/api/icons/${project.icon}`}
                     alt={project.name}
                     width={width}
                     height={height}

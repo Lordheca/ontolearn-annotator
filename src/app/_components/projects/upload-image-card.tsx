@@ -24,7 +24,7 @@ export default function UploadImageCard({ project, readOnly = true }: Props) {
                 {project.icon && (
                     <div className="flex flex-col items-center justify-center">
                         <Image
-                            src={`/img/projects/${project.icon}`}
+                            src={`/api/icons/${project.icon}`}
                             width="150"
                             height="150"
                             alt="Current icon"

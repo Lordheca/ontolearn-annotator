@@ -2,11 +2,11 @@
 
 import { createDataInputSchema } from "@/lib/validation-schemas/data";
 import { authedProcedure } from "@/lib/zsa-procedures";
-import { writeFileSync, mkdirSync, existsSync } from 'fs';
+import { putObject } from "@/lib/storage";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { v4 as uuidv4 } from 'uuid';
-import path from 'path';
+
 
 export type FormState = {
     message: string;
@@ -77,28 +77,34 @@ export const createData = authedProcedure
         // reachable only once Step 2's /api/files/[id] route (ABAC-gated) exists. filePath
         // is stored without a leading slash from here on: it is a storage key, not a URL a
         // browser can hit directly.
+        //
+        // File Storage Remediation Plan, Phase 2 Step 8: "storage/uploads" above is now
+        // the object key prefix inside the MinIO bucket (storage.ts), not a local disk
+        // path -- no local directory is created or written to here anymore.
         const uploadSubdir = destination === "MANUAL" ? "manual" : "";
-        const fullUploadPath = path.join(process.cwd(), "storage", "uploads", uploadSubdir);
-        if (!existsSync(fullUploadPath)) {
-            mkdirSync(fullUploadPath, { recursive: true });
-        }
 
         // Handle all file uploads
         const uploadedFiles: Array<{ fieldId: string; filePath: string; fileName: string; extension: string; isImage: boolean }> = [];
 
         for (const field of sourceType.fields) {
             if (field.type === "FILE") {
-                // Write the file to the disk
+                // Write the file to object storage
                 const file = input[`fields[${field.id}]`];
                 const extension = file.name.split('.').pop()?.toLocaleLowerCase();
                 const fileUuid = uuidv4();
                 const fileName = `${fileUuid}.${extension}`;
 
-                const diskPath = path.join(fullUploadPath, fileName);
-                const arrayBuffer = await file.arrayBuffer();
-                const buffer = new Uint8Array(arrayBuffer);
+                 // Built conditionally so an empty sub-directory does not yield a double
+                // slash. No leading slash: this is a storage key (see note above), not a
+                // public URL.
+                const storageKey = uploadSubdir
+                    ? `uploads/${uploadSubdir}/${fileName}`
+                    : `uploads/${fileName}`;
 
-                writeFileSync(diskPath, buffer);
+                const arrayBuffer = await file.arrayBuffer();
+                const buffer = Buffer.from(arrayBuffer);
+
+                await putObject(storageKey, buffer, file.type || "application/octet-stream");
 
                 // Store metadata for DataFile creation
                 const isImage = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'tiff', 'svg', 'dzi'].includes(extension || '');
@@ -106,12 +112,7 @@ export const createData = authedProcedure
 
                 uploadedFiles.push({
                     fieldId: field.id,
-                    // Built conditionally so an empty sub-directory does not yield
-                    // a double slash. No leading slash: this is a storage key (see
-                    // note above), not a public URL.
-                    filePath: uploadSubdir
-                        ? `uploads/${uploadSubdir}/${fileName}`
-                        : `uploads/${fileName}`,
+                    filePath: storageKey,
                     fileName: file.name,
                     extension: extension || '',
                     isImage: isImage && !isZip
@@ -146,7 +147,7 @@ export const createData = authedProcedure
                     create: fields,
                 },
             }
-        });
+        });  
 
         // Create DataFile only for image files (not ZIP)
         for (const fileInfo of uploadedFiles) {

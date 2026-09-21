@@ -3,9 +3,8 @@
 import { uploadPlaygroundInputSchema } from "@/lib/validation-schemas/playground";
 import { canWritePlayground } from "@/lib/zsa-procedures";
 import { Prisma } from "@prisma/client";
-import { writeFileSync, mkdirSync, existsSync } from "fs";
+import { putObject } from "@/lib/storage";
 import { v4 as uuidv4 } from "uuid";
-import path from "path";
 
 export const uploadPlayground = canWritePlayground
   .createServerAction()
@@ -25,15 +24,15 @@ export const uploadPlayground = canWritePlayground
     // Next.js -- so the file is reachable only once Step 2's /api/files/[id] route
     // (ABAC-gated) exists. The stored key has no leading slash from here on: it is a
     // storage key, not a URL a browser can hit directly.
+    //
+    // File Storage Remediation Plan, Phase 2 Step 8: "storage/uploads/playground" is now
+    // the object key prefix inside the MinIO bucket (storage.ts) -- no local directory is
+    // created or written to here anymore.
     const storageKey = `uploads/playground/${fileName}`;
-    const uploadDir = path.join(process.cwd(), "storage", "uploads", "playground");
-    if (!existsSync(uploadDir)){
-      mkdirSync(uploadDir, { recursive: true});
-    }
 
     const arrayBuffer = await file.arrayBuffer();
-    const buffer = new Uint8Array(arrayBuffer);
-    writeFileSync(path.join(uploadDir,fileName), buffer);
+    const buffer = Buffer.from(arrayBuffer);
+    await putObject(storageKey, buffer, file.type || "application/octet-stream");
 
     const inputJSON = {
       file: storageKey,

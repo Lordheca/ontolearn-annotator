@@ -1,26 +1,21 @@
-feat: add MinIO to docker-compose.yml (Phase 2 Step 7)
+feat: swap file storage write sites to MinIO/S3, add matching read paths (Phase 2 Step 8)
 
-File Storage Remediation Plan, Phase 2 Step 7. Adds the MinIO service
-Step 6's storage.ts talks to, so the local stack has an S3-compatible
-backend without relying on a loose, unmanaged container.
+- src/actions/data.ts, src/actions/projects.ts, and
+  src/server/actions/playground.ts now write uploads through
+  storage.putObject instead of writeFileSync; no code path in any of
+  the three touches local disk anymore.
+- src/app/api/files/[id]/route.ts: added the object-storage read
+  branch the plan's §5.4 assumed already existed but didn't -- disk is
+  checked first so pre-Step-8 rows keep working, falling through to
+  storage.getObjectStream on a miss.
+- New src/app/api/icons/[filename]/route.ts: deliberately
+  unauthenticated (§5.2 -- icons stay public), replaces the old
+  public/img/projects/<icon> static URL. project-item.tsx and
+  upload-image-card.tsx now point at it. No disk-fallback on this
+  route by design -- confirmed with the client 2026-09-21: no
+  pre-existing project data needs to survive the cutover, so every
+  icon is bucket-only from here on.
+- Phase 2 (Steps 6-8) is functionally complete. Step 9's backfill is
+  left open as future work.
 
-- docker-compose.yml: new minio service (quay.io/minio/minio -- not
-  minio/minio, which MinIO pulled from Docker Hub entirely), same
-  style as db (hardcoded dev credentials, volume under ./data/).
-  Lives in the base compose file, not docker-compose.dev.yml, since
-  MinIO is also needed for the self-hosted production deploy (§5.3)
-  -- the same reasoning that already put db there instead of the
-  dev-only override file.
-
-Not addressed here: the app service still has no environment:/
-env_file: block, so none of the server-side env vars (including the
-new S3_* ones) reach it when it runs containerized -- pre-existing
-gap (secrets baked into the image at build time), unrelated to this
-step.
-
-Verified end-to-end via start-local.sh (ABAC_NII repo): MinIO starts
-alongside db/maildev, the bucket is created, and npm run dev boots
-clean reading the new S3_* values -- see that repo's commit for the
-orchestration side.
-
-Co-Authored-By: Claude Sonnet 5 
+Co-Authored-By: Claude Sonnet 5
