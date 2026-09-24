@@ -46,3 +46,36 @@ export default async function fetchLastData(projectId: string): Promise<RecentDa
         filePath: file.filePath,
     }));
 }
+
+/**
+ * Every DataFile in a project, newest first -- what the Data page's own
+ * "Data" tab needs. Kept separate from fetchLastData (the Dashboard's
+ * 5-most-recent widget) so that call site's behavior doesn't change.
+ */
+export async function fetchAllDataFiles(projectId: string): Promise<RecentDataFile[]> {
+    await requireRead(projectId, "data");
+
+    const files = await prisma.dataFile.findMany({
+        where: {
+            source: {
+                projectId: projectId,
+            },
+        },
+        orderBy: {
+            createdAt: "desc",
+        },
+        select: {
+            id: true,
+            name: true,
+            createdAt: true,
+            filePath: true,
+        },
+    });
+
+    return files.map((file) => ({
+        id: file.id,
+        name: file.name,
+        uploadedAt: file.createdAt,
+        filePath: file.filePath,
+    }));
+}

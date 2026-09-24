@@ -1,21 +1,38 @@
-feat: swap file storage write sites to MinIO/S3, add matching read paths (Phase 2 Step 8)
+feat: backfill legacy on-disk files into MinIO/S3 (Phase 2 Step 9)
 
-- src/actions/data.ts, src/actions/projects.ts, and
-  src/server/actions/playground.ts now write uploads through
-  storage.putObject instead of writeFileSync; no code path in any of
-  the three touches local disk anymore.
-- src/app/api/files/[id]/route.ts: added the object-storage read
-  branch the plan's §5.4 assumed already existed but didn't -- disk is
-  checked first so pre-Step-8 rows keep working, falling through to
-  storage.getObjectStream on a miss.
-- New src/app/api/icons/[filename]/route.ts: deliberately
-  unauthenticated (§5.2 -- icons stay public), replaces the old
-  public/img/projects/<icon> static URL. project-item.tsx and
-  upload-image-card.tsx now point at it. No disk-fallback on this
-  route by design -- confirmed with the client 2026-09-21: no
-  pre-existing project data needs to survive the cutover, so every
-  icon is bucket-only from here on.
-- Phase 2 (Steps 6-8) is functionally complete. Step 9's backfill is
-  left open as future work.
+- New scripts/backfill-storage.ts: one-off, dry-run-by-default script
+  (--confirm to execute) that finds every DataFile/PlaygroundTask/
+  SourceField/Project-icon row whose bytes are still on local disk and
+  migrates them into the bucket via storage.putObject, removing the
+  local copy once uploaded.
+- src/lib/storage.ts: added objectExists (HeadObjectCommand) so the
+  script can guard project-icon keys against overwriting a newer
+  object already in the bucket -- unlike DataFile/PlaygroundTask/
+  SourceField keys (fresh uuidv4() per upload, never collide), an
+  icon's key is the same on every re-upload.
+- Fixed a duplicate-physical-file bug found during the first run: a
+  FILE-type SourceField and the DataFile created from the same image
+  upload can point at the identical disk path. The script now groups
+  candidates by disk path before uploading/deleting, so a shared file
+  is migrated exactly once regardless of how many DB rows reference it.
+- Result: 14/14 files migrated; local storage/uploads/ and
+  public/img/projects/ are now empty except one deliberately-skipped
+  stale icon leftover (superseded by a newer bucket object). Phase 2
+  (Steps 6-9) is complete.
 
-Co-Authored-By: Claude Sonnet 5
+fix: point the Data tab at real DataFile rows instead of the legacy Data model
+
+- src/app/projects/[slug]/data/page.tsx rendered project.data (the
+  legacy Data model -- inline content/preview strings, explicitly out
+  of scope for the File Storage Remediation Plan) through columns.tsx,
+  a table built for DataFile rows and its /api/files/[id] download
+  link. Data.id has no filePath at all, so every download from this
+  tab 404'd regardless of storage backend -- pre-existing, unrelated
+  to MinIO or Phase 2's backfill.
+- New src/services/data.ts#fetchAllDataFiles: every DataFile in a
+  project, same shape as the Dashboard's fetchLastData but without its
+  5-row limit.
+- data/page.tsx now fetches and renders real DataFile rows; downloads
+  from the Data tab work correctly.
+
+Co-Authored-By: Claude Sonnet 5 

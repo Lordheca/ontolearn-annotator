@@ -3,6 +3,7 @@ import {
   PutObjectCommand,
   GetObjectCommand,
   DeleteObjectCommand,
+  HeadObjectCommand,
 } from "@aws-sdk/client-s3";
 import type { Readable } from "stream";
 import { env } from "@/env";
@@ -60,4 +61,16 @@ export async function getObjectStream(key: string): Promise<Readable> {
 
 export async function deleteObject(key: string): Promise<void> {
   await s3.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: key }));
+}
+
+export async function objectExists(key: string): Promise<boolean> {
+  try {
+    await s3.send(new HeadObjectCommand({ Bucket: BUCKET, Key: key }));
+    return true;
+  } catch (error: any) {
+    if (error?.name === "NotFound" || error?.$metadata?.httpStatusCode === 404) {
+      return false;
+    }
+    throw error; // a real connectivity/permissions error should surface, not be swallowed as "safe to overwrite"
+  }
 }
