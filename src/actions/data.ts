@@ -1,6 +1,6 @@
 "use server"
 
-import { createDataInputSchema } from "@/lib/validation-schemas/data";
+import { createDataInputSchema, destinationSchema } from "@/lib/validation-schemas/data";
 import { authedProcedure } from "@/lib/zsa-procedures";
 import { putObject } from "@/lib/storage";
 import { revalidatePath } from "next/cache";
@@ -20,7 +20,9 @@ export const createData = authedProcedure
         type: "formData"
     })
     .handler(async ({ input, ctx }) => {
-        const { sourceTypeId, destination = "MANUAL" } = input;
+        const { sourceTypeId } = input;
+        const destination = destinationSchema.parse(input.destination ?? "MANUAL");
+
         const { user, prisma } = ctx;
 
         const sourceType = await prisma.sourceType.findUnique({
@@ -143,6 +145,7 @@ export const createData = authedProcedure
                 sourceTypeId,
                 projectId: project.id,
                 status: "PENDING",
+                destination,
                 fields: {
                     create: fields,
                 },
@@ -164,7 +167,7 @@ export const createData = authedProcedure
                         name: fileInfo.fileName,
                         filePath: fileInfo.filePath,
                         type: fileType,
-                        destination: destination as "MANUAL" | "ML" | "HEADWORK",
+                        destination,
                     }
                 });
             }

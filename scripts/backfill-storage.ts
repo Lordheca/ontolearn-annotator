@@ -211,7 +211,7 @@ async function main() {
   let migratedFiles = 0;
   const failures: string[] = [];
 
-  for (const [diskPath, items] of groups) {
+  for (const [diskPath, items] of Array.from(groups)) {
     try {
       const newKey = items[0].newKey;
       const buffer = readFileSync(diskPath);

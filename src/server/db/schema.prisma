@@ -199,6 +199,10 @@ model Source {
   projectId    String
   statusInfo   Json?
   sourceTypeId String
+  // Where the files of this Source go (Manual annotation / ML / Headwork), as picked
+  // in the upload form. Stored on the Source so a zip -- which creates no DataFile at
+  // upload time -- keeps the choice until upload.py extracts it.
+  destination  DataFileDestination @default(MANUAL)
   fields       SourceField[]
   dataFiles    DataFile[]
 }
