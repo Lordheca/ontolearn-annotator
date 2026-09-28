@@ -167,3 +167,8 @@ cython_debug/
 *.keras
 logs/
 /data
+
+# upload.py runtime artifacts (the pre-2026-09 worker wrote these into its working directory)
+/source/
+/source.zip
+/02_upload/data/
