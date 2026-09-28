@@ -1,6 +1,3 @@
-import { $Enums } from "@prisma/client";
-import { JsonValue } from "@prisma/client/runtime/library";
-
 export type Project = {
     id: string;
     name: string;
@@ -10,34 +7,6 @@ export type Project = {
     createdAt: string;
     updatedAt: string;
 }
-
-export enum DataType {
-    IMAGE = "IMAGE",
-    LARGE_IMAGE = "LARGE_IMAGE",
-}
-
-export enum DataStatus {
-    PENDING = "PENDING",
-    PROCESSING = "PROCESSING",
-    COMPLETED = "COMPLETED",
-    FAILED = "FAILED",
-}
-
-export type StatusInfo = {
-    time?: number;
-    time_left?: number;
-    progress?: number;
-}
-
-export type Data = {
-    id: string;
-    name: string;
-    type: $Enums.DataType;
-    status: $Enums.SourceStatus;
-    uploadedAt: Date;
-    filePath: string;
-    statusInfo: StatusInfo|JsonValue;
-};
 
 export type ErrorResponse = {
     message: string;

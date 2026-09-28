@@ -18,9 +18,9 @@ export default async function fetchLastData(projectId: string): Promise<RecentDa
     // Check permission to read data
     await requireRead(projectId, "data");
 
-    // Reads DataFile, not the older Data model: uploads made through the UI land in
-    // DataFile, so the dashboard used to show "No data available" for a project that
-    // had files. See TODO.md — Data is still what /api/v1/.../data writes.
+    // Reads DataFile: every upload path (UI and upload.py via
+    // /api/v1/projects/[projectId]/sources/[id]/files) lands there. The legacy
+    // Data model was dropped in migration drop_legacy_data.
     const files = await prisma.dataFile.findMany({
         where: {
             source: {

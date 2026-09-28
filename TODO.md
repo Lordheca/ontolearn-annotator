@@ -158,11 +158,13 @@ Two things make the rest non-trivial, which is presumably why it stalled:
    equivalent on disk.
 2. That endpoint is live: `examples/water_crystal_classification/02_upload/upload.py:108`
    posts to it, so removing `Data` breaks the ML upload client. Note the same script
-   already creates `Source` rows through `/api/v1/.../sources` — the parent of
+   already reads and updates `Source` rows through `/api/v1/.../sources` — the parent of
    `DataFile` — so the two halves are closer than they look.
 
 Once ported: update `upload.py`, then drop the `Data` model and `DataType` in a
 migration.
+
+This item has been resolved on 09/28/2026 via the PLAN-upload-pipeline-storage.md
 
 ### 8. Node-based workflow editor instead of YAML
 
