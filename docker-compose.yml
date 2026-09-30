@@ -12,7 +12,10 @@ services:
       - ./data/db:/var/lib/mysql
 
   minio:
-    image: quay.io/minio/minio
+    # MinIO no longer publishes public images (quay.io answers 401, Docker Hub removed
+    # them). This tag must already be in the local image cache — see
+    # ABAC_NII handover/README.md, "MinIO images". Keep in sync with start-local.sh.
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
