@@ -28,7 +28,7 @@ export const sourceColumns: ColumnDef<Source>[] = [
                     )
                     break;
                 case "COMPLETED":
-                    return <Badge>Used</Badge>;
+                    return <Badge>Completed</Badge>;
                 case "FAILED":
                     return <Badge variant="destructive">Failed</Badge>;
                 default:
