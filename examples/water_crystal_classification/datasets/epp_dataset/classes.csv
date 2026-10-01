@@ -1,0 +1,27 @@
+code;name_en;name_ja
+1.1;Microparticle;微粒子付き
+1.2;Hexagon;六角形
+1.3;Fan-like Hexagon;扇付六角形
+1.4;Dendrite Hexagon;樹枝付六角形
+1.5;Fern-like Dendrite Hexagon;シダ状樹枝付き六角形
+1.6;Column/Square;角柱/ブロック
+1.7;Singular Irregular;単数の不定形
+1.7.1;Simple Plate;角板
+1.7.2;Simple Plate with branches;枝葉付き角板
+1.7.3;Deficient Hexagonal;六角形欠け
+1.7.4;Deficient Hexagonal with branches;枝葉付六角形欠け
+1.7.5;Radiated Fern-likeDendrite;放射状
+1.7.6;With Branches only;枝葉
+1.8;Cloud-particle;雲粒付き
+2.1;Combination;複合
+2.2;Double Plates;二重
+2.3;Multiple Columns / Squares;複数の角柱/ブロック
+2.4;Multiple Irregulars;複数の不定形
+2.4.1;Multiple Simple Plates;複数の 角板
+2.4.2;Multiple Plates with branches;複数の枝葉付き角板
+2.4.3;Multiple Deficient Hexagonals;複数の六角形欠け
+2.4.4;Multiple Deficient Hexagonals with branches;複数の枝葉付六角形欠け
+2.4.5;Multiple Radiateds Fern-like Dendrite;複数の放射状
+2.4.6;Multiple branches;複数の枝葉
+2.4.7;Multiple deficients with crystals;結晶を伴う陥没
+3;No crystal;結晶無し
