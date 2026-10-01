@@ -172,3 +172,5 @@ logs/
 /source/
 /source.zip
 /02_upload/data/
+/classes.json
+/01_playground/classes.json
