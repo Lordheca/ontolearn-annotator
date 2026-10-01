@@ -6,6 +6,7 @@ import { putObject } from "@/lib/storage";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { v4 as uuidv4 } from 'uuid';
+import { SourceStatus } from "@prisma/client";
 
 
 export type FormState = {
@@ -14,6 +15,8 @@ export type FormState = {
     issues?: string[];
 };
 
+
+// Recieves raw form submission from the browser
 export const createData = authedProcedure
     .createServerAction()
     .input(createDataInputSchema, {
@@ -96,7 +99,7 @@ export const createData = authedProcedure
                 const fileUuid = uuidv4();
                 const fileName = `${fileUuid}.${extension}`;
 
-                 // Built conditionally so an empty sub-directory does not yield a double
+                // Built conditionally so an empty sub-directory does not yield a double
                 // slash. No leading slash: this is a storage key (see note above), not a
                 // public URL.
                 const storageKey = uploadSubdir
@@ -122,6 +125,10 @@ export const createData = authedProcedure
             }
         }
 
+        const hasFiles = uploadedFiles.length > 0;
+        const allFilesBecameDataFiles = uploadedFiles.every((f) => f.isImage);
+        const status: SourceStatus = hasFiles && allFilesBecameDataFiles ? "COMPLETED" : "PENDING";
+
         const uploadedFileByFieldId = new Map(
             uploadedFiles.map((f)=> [f.fieldId, f.filePath])
         );
@@ -144,7 +151,7 @@ export const createData = authedProcedure
                 name: "New data",
                 sourceTypeId,
                 projectId: project.id,
-                status: "PENDING",
+                status,
                 destination,
                 fields: {
                     create: fields,
