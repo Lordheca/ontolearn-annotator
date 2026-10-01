@@ -145,8 +145,7 @@ export const createData = authedProcedure
             };
         });
 
-        // Now we can create the data
-        const source = await prisma.source.create({
+        await prisma.source.create({
             data: {
                 name: "New data",
                 sourceTypeId,
@@ -156,29 +155,20 @@ export const createData = authedProcedure
                 fields: {
                     create: fields,
                 },
-            }
-        });  
 
-        // Create DataFile only for image files (not ZIP)
-        for (const fileInfo of uploadedFiles) {
-            if (fileInfo.isImage) {
-                // Determine file type based on extension
-                let fileType: "IMAGE" | "DEEP_ZOOM_IMAGE" = "IMAGE";
-                if (fileInfo.extension === 'dzi') {
-                    fileType = "DEEP_ZOOM_IMAGE";
-                }
-
-                await prisma.dataFile.create({
-                    data: {
-                        sourceId: source.id,
-                        name: fileInfo.fileName,
-                        filePath: fileInfo.filePath,
-                        type: fileType,
+                // DataFiles only for image files, zips get theirs from upload.py
+                dataFiles: {
+                    create: uploadedFiles
+                        .filter((f) => f.isImage)
+                        .map((f) => ({
+                        name: f.fileName,
+                        filePath: f.filePath,
+                        type: f.extension === "dzi" ? ("DEEP_ZOOM_IMAGE" as const) : ("IMAGE" as const),
                         destination,
-                    }
-                });
-            }
-        }
+                    })),
+                },
+            },
+        });
 
         revalidatePath(`/projects/${project.slug}/data`);
         redirect(`/projects/${project.slug}/data`)
