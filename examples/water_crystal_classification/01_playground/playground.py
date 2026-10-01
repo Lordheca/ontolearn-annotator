@@ -8,12 +8,26 @@ import tensorflow as tf
 from PIL import Image
 
 model = tf.keras.models.load_model("/app/model.keras")
+
+# Class list saved by the training notebook next to model.keras, in the order
+# of the model's output units. Never hard-code it here: a different order
+# would silently attach every probability to the wrong class.
+with open("/app/classes.json", encoding="utf-8") as f:
+    classes = json.load(f)
+if model.output_shape[-1] != len(classes):
+    raise SystemExit(
+        f"model.keras has {model.output_shape[-1]} outputs but classes.json lists "
+        f"{len(classes)} classes; copy both files from the same training run"
+    )
+names = [f"{c['code']} {c['name_en']}" for c in classes]
+
 platformUrl = os.environ["PLATFORM_URL"]
 projectId = os.environ["PROJECT_ID"]
-apiKey = os.environ["API_KEY"]              
-headers = {"Authorization": f"Bearer {apiKey}"}  
+apiKey = os.environ["API_KEY"]
+headers = {"Authorization": f"Bearer {apiKey}"}
 
 print(platformUrl)
+print(f"Loaded model with {len(names)} classes")
 
 while True:
     try:
@@ -55,22 +69,6 @@ while True:
             print(prediction)
 
             # Send prediction back to the server
-            names = [
-                "microparticule",
-                "simple_plate",
-                "fan_like_plate",
-                "dentrite_plate",
-                "fern_like_dentrite_plate",
-                "column_square",
-                "singular_irregular",
-                "cloud_particle",
-                "combinations",
-                "double_plate",
-                "multiple_columns_squares",
-                "multiple_irregulars",
-                "undefined",
-            ]
-
             formatted_prediction = []
             for i in range(len(names)):
                 formatted_prediction.append(
