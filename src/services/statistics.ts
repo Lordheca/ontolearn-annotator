@@ -38,13 +38,15 @@ export async function fetchHeaderStatistics(projectId: string): Promise<HeaderSt
     });
 
     // Was hardcoded to 0, so the tile could never show anything else.
+    // "Annotated" means annotated by a person: an image that only has an expert
+    // category or an ML suggestion is still waiting for annotation.
     const numberOfAnnotatedData = await prisma.dataFile.count({
         where: {
             source: {
                 projectId: projectId
             },
             annotations: {
-                some: {}
+                some: { author: "USER"}
             }
         }
     });

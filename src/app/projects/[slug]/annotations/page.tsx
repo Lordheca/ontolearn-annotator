@@ -37,9 +37,18 @@ export default async function AnnotationsPage({ params }: { params: { slug: stri
     return notFound();
   }
   const projectId = project.id;
-  const dataFiles = await fetchDataFiles(projectId);
 
-  if (!dataFiles) return notFound();
+  const allDataFiles = await fetchDataFiles(projectId);
+
+  if (!allDataFiles) return notFound();
+
+  // The table's counts, status, authors and previews mean "annotated by a person".
+  // Expert and ML annotations are loaded too (the category columns will read them),
+  // but are kept out of what the existing table logic sees.
+  const dataFiles = allDataFiles.map((dataFile) => ({
+    ...dataFile,
+    annotations: dataFile.annotations.filter((annotation) => annotation.author === "USER"),
+  }));
 
   return (
     <AnnotationsPageContent slug={slug} dataFiles={dataFiles} projectName={project.name} />
