@@ -54,3 +54,6 @@ public/img/projects/*
 
 # File Storage Remediation Plan, Phase 1 Step 1: uploads now land outside public/
 /storage
+
+# Local record of what scripts/seed-new-workflow.ts created (read by --undo)
+scripts/.seed-new-workflow.*.json
