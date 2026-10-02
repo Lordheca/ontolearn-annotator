@@ -78,7 +78,10 @@ export default function UploadForm({ project, sourceTypes }: Props) {
 
         data.fields.forEach((field: any) => {
             if (field.value instanceof FileList) {
-                formData.append(`fields[${field.id}]`, field.value[0]);
+                // FILE field can hold several files, send them under the same key, createData reads them back as a list
+                for (const file of Array.from(field.value as FileList)) {
+                    formData.append(`fields[${field.id}]`, file);
+                }
                 return;
             }
             formData.append(`fields[${field.id}]`, field.value);

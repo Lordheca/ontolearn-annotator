@@ -20,18 +20,21 @@ export default function UploadFields({ formFields, fields, form }: Props) {
                         control={form.control}
                         name={`fields.${index}.value`}
                         key={formField.id}
-                        render={({ field: formFieldRender }) => (
-                            <FormItem>
-                                <FormLabel>{fields.find((field) => field.id === formField.id)?.label}</FormLabel>
-                                <FormControl>
-                                    <Input
-                                        type={fields.find((field) => field.id === formField.id)?.type === "STRING" ? "text" : "file"}
-                                        {...form.register(`fields.${index}.value`)}
-                                        // {...formFieldRender}
-                                    />
-                                </FormControl>
-                            </FormItem>
-                        )}
+                        render={() => {
+                            const fieldType = fields.find((field) => field.id === formField.id)?.type;
+                            return (
+                                <FormItem>
+                                    <FormLabel>{fields.find((field) => field.id === formField.id)?.label}</FormLabel>
+                                    <FormControl>
+                                        <Input
+                                            type={fieldType === "STRING" ? "text" : "file"}
+                                            multiple={fieldType === "FILE"}
+                                            {...form.register(`fields.${index}.value`)}
+                                        />
+                                    </FormControl>
+                                </FormItem>
+                            );
+                        }}
                     />
                 )
             })}
