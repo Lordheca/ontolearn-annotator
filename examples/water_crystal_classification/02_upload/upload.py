@@ -14,7 +14,7 @@ projectId = os.environ["PROJECT_ID"]
 apiKey = os.environ["API_KEY"]              
 headers = {"Authorization": f"Bearer {apiKey}"}  
 
-TARGET_SIZE = (370,240)
+TARGET_SIZE = (360,240)
 IMAGE_EXTENSIONS = {".jpg",".jpeg",".png", ".gif", ".bmp", ".webp", ".tiff"}
 POLL_SECONDS = 20
 
