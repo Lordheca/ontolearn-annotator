@@ -3,6 +3,7 @@ import { auth } from "@/server/auth";
 import { db } from "@/server/db";
 import { PermissionDeniedError, requireRead, requireWrite } from "@/lib/abac-guards";
 import { z } from "zod";
+import { sortByPosition } from "@/lib/class-types-order";
 
 // Validation schema
 const classTypeSchema = z.object({
@@ -83,7 +84,7 @@ export async function GET(
       },
     });
 
-    return NextResponse.json(classTypes);
+    return NextResponse.json(sortByPosition(classTypes));
   } catch (error) {
     console.error("[GET /api/projects/[slug]/class-types] Error:", error);
     return NextResponse.json(

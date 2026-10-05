@@ -5,6 +5,7 @@ import {
 } from "@/lib/validation-schemas/project";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { requireRead, requireWrite } from "@/lib/abac-guards";
+import { sortByPosition } from "@/lib/class-types-order";
 
 export const projectRouter = createTRPCRouter({
   create: protectedProcedure
@@ -92,7 +93,7 @@ export const projectRouter = createTRPCRouter({
       });
 
       // Return in format expected by workflow: array of { value, label }
-      return classTypes.map((ct: any) => ({
+      return sortByPosition(classTypes).map((ct: any) => ({
         value: ct.name,
         label: ct.name,
       }));
