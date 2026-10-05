@@ -15,7 +15,7 @@ import { env } from "@/env";
 // storage" item -- all three operations are async, unlike the writeFileSync
 // calls in src/actions/data.ts, src/actions/projects.ts and
 // src/server/actions/playground.ts that Step 8 replaces with putObject.
-
+// `metadata` is stored as S3 user metadata (x-amz-meta-<name>). Values must be ASCII.
 const s3 = new S3Client({
   endpoint: env.S3_ENDPOINT,
   region: env.S3_REGION,
@@ -31,7 +31,8 @@ const BUCKET = env.S3_BUCKET;
 export async function putObject(
   key: string,
   buffer: Buffer,
-  contentType: string
+  contentType: string,
+  metadata?: Record<string, string>
 ): Promise<void> {
   await s3.send(
     new PutObjectCommand({
@@ -39,6 +40,7 @@ export async function putObject(
       Key: key,
       Body: buffer,
       ContentType: contentType,
+      Metadata: metadata,
     })
   );
 }
