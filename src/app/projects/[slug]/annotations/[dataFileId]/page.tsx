@@ -11,15 +11,18 @@ async function fetchDataFile(projectId: string, dataFileId: string) {
     where: {
       id: dataFileId,
       source: { projectId },
-      destination: "MANUAL",
     },
   });
 }
 
+// Only annotations made by a person count as "already annotated". Expert categories
+// and ML suggestions are also Annotation rows on the same image, and must not hide
+// the Annotator.
 async function fetchAnnotations(projectId: string, dataFileId: string) {
   return prisma.annotation.findMany({
     where: {
       dataFileId,
+      author: "USER",
       dataFile: { source: { projectId } },
     },
   });

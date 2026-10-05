@@ -336,6 +336,8 @@ enum AuthorType {
   USER
   ML
   HEADWORK
+  // Category given by the domain expert at upload (label file or batch dropdown).
+  EXPERT
 }
 
 model Annotation {
@@ -351,10 +353,15 @@ model Annotation {
   quality            String?
   author             AuthorType
   userId             String?
+  // For an ML annotation: confidence of the rank-1 label, so lists can show it
+  // without loading the AnnotationType rows.
   confidence         Float?
+  modelVersion       String?
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
   annotationTypes    AnnotationType[]
+
+  @@index([dataFileId, author])
 }
 
 model AnnotationType {
@@ -363,6 +370,8 @@ model AnnotationType {
   classType    ClassType  @relation(fields: [classTypeId], references: [id])
   classTypeId  String
   rank         Int
+  // Confidence of this label, 0..1. Set for ML annotations; null otherwise.
+  confidence   Float?
 
   @@id([annotationId, classTypeId, rank])
 }
