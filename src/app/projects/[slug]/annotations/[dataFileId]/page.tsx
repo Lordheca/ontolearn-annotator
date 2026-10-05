@@ -11,7 +11,6 @@ async function fetchDataFile(projectId: string, dataFileId: string) {
     where: {
       id: dataFileId,
       source: { projectId },
-      destination: "MANUAL",
     },
   });
 }

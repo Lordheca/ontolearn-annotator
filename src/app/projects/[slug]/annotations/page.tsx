@@ -12,7 +12,6 @@ async function fetchDataFiles(projectId: string) {
       source: {
         projectId,
       },
-      destination: "MANUAL",
       type: { in: ["IMAGE", "DEEP_ZOOM_IMAGE"] },
     },
     include: {
