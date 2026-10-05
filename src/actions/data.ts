@@ -6,7 +6,8 @@ import { putObject, deleteObject } from "@/lib/storage";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { v4 as uuidv4 } from 'uuid';
-import { SourceStatus } from "@prisma/client";
+import { PrismaClient, SourceStatus } from "@prisma/client";
+import { MAX_BATCH_IMAGES, extensionOf, isImageFileName } from "@/lib/upload-limits";
 
 export type FormState = {
     message: string;
@@ -14,7 +15,55 @@ export type FormState = {
     issues?: string[];
 };
 
+function singleFileFieldId(sourceType: { fields: { id: string; type: string }[] }): string | null {
+    const [only, ...rest] = sourceType.fields;
+    return only && rest.length === 0 && only.type === "FILE" ? only.id : null;
+}
 
+async function storeImageSource(
+    prisma: PrismaClient,
+    project: { id: string },
+    sourceTypeId: string,
+    fieldId: string,
+    file: File,
+    opts?: { expertClassTypeId?: string }
+): Promise<{ sourceId: string; dataFileId: string }> {
+    const extension = extensionOf(file.name);
+    const storageKey = `uploads/manual/${uuidv4()}.${extension}`;
+
+    await putObject(storageKey, Buffer.from(await file.arrayBuffer()), file.type || "application/octet-stream");
+
+    try {
+        const source = await prisma.source.create({
+            data: {
+                name: "New data",
+                sourceTypeId,
+                projectId: project.id,
+                status: "COMPLETED",
+                destination: "MANUAL",
+                fields: {create: [{ fieldId, value: storageKey }] },
+                dataFiles: {
+                    create: [{
+                        name: file.name,
+                        filePath: storageKey,
+                        type: extension === "dzi" ? "DEEP_ZOOM_IMAGE" : "IMAGE",
+                        destination: "MANUAL",
+                    }],
+                },
+            },
+            include: {dataFiles: { select: {id: true } } },
+        });
+
+        return { sourceId: source.id, dataFileId: source.dataFiles[0].id };
+    } catch (error) {
+        try {
+            await deleteObject(storageKey);
+        } catch (deleteError) {
+            console.error(`Failed to delete orphaned object ${storageKey}:`, deleteError);
+        }
+        throw error;
+    }
+}
 // Recieves raw form submission from the browser
 export const createData = authedProcedure
     .createServerAction()
@@ -26,9 +75,6 @@ export const createData = authedProcedure
         const destination = destinationSchema.parse(input.destination ?? "MANUAL");
 
         const { user, prisma } = ctx;
-        const MAX_BATCH_IMAGES = 10;
-        const IMAGE_EXTENTIONS = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'tiff', 'svg', 'dzi'];
-        const extensionOf = (name: string) => name.split('.').pop()?.toLowerCase() ?? '';
 
         // Change:  A FILE field can now hold several files and always work with an array
 
@@ -70,7 +116,7 @@ export const createData = authedProcedure
             const files = filesOf(field.id);
             if (files.length === 0) throw new Error (`Field ${field.label} is required`);
 
-            const images = files.filter((f) => IMAGE_EXTENTIONS.includes(extensionOf(f.name)));
+            const images = files.filter((f) => isImageFileName(f.name));
             if (files.length > 1 && images.length !== files.length) {
                 throw new Error(`Field ${field.label}: several files must all be images. Upload a zip on its own.`);
             }
@@ -79,20 +125,6 @@ export const createData = authedProcedure
         if (imageCount > MAX_BATCH_IMAGES) {
             throw new Error(`Up to ${MAX_BATCH_IMAGES} images per upload. For larger sets, upload a zip.`);
         }
-
-        /*sourceType.fields.forEach((field) => {
-            if (!input[`fields[${field.id}]`]) {
-                throw new Error(`Field ${field.label} is required`);
-            }
-
-            if (field.type === "FILE" && !(input[`fields[${field.id}]`] instanceof File)) {
-                throw new Error(`Field ${field.label} must be a file`);
-            }
-
-            if (field.type === "STRING" && typeof input[`fields[${field.id}]`] !== "string") {
-                throw new Error(`Field ${field.label} must be a string`);
-            }
-        });*/
 
         const project = await prisma.project.findFirst({
             where: {
@@ -106,6 +138,16 @@ export const createData = authedProcedure
 
         if (!project) {
             throw new Error("Project not found");
+        }
+
+        const singleFieldId = singleFileFieldId(sourceType);
+        if (singleFieldId) {
+            const files = filesOf(singleFieldId);
+            if (files.length === 1 && isImageFileName(files[0].name)) {
+                await storeImageSource(prisma, project, sourceTypeId, singleFieldId, files[0]);
+                revalidatePath(`/projects/${project.slug}/data`);
+                redirect(`/project/${project.slug}/data`);
+            }
         }
 
 
@@ -148,43 +190,11 @@ export const createData = authedProcedure
                         filePath: storageKey,
                         fileName: file.name,
                         extension,
-                        isImage: IMAGE_EXTENTIONS.includes(extension),
+                        isImage: isImageFileName(file.name),
                     });
                 }
             }
-            /*for (const field of sourceType.fields) {
-                if (field.type === "FILE") {
-                    // Write the file to object storage
-                    const file = input[`fields[${field.id}]`];
-                    const extension = file.name.split('.').pop()?.toLocaleLowerCase();
-                    const fileUuid = uuidv4();
-                    const fileName = `${fileUuid}.${extension}`;
 
-                    // Built conditionally so an empty sub-directory does not yield a double
-                    // slash. No leading slash: this is a storage key (see note above), not a
-                    // public URL.
-                    const storageKey = uploadSubdir
-                        ? `uploads/${uploadSubdir}/${fileName}`
-                        : `uploads/${fileName}`;
-
-                    const arrayBuffer = await file.arrayBuffer();
-                    const buffer = Buffer.from(arrayBuffer);
-
-                    await putObject(storageKey, buffer, file.type || "application/octet-stream");
-
-                    // Store metadata for DataFile creation
-                    const isImage = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'tiff', 'svg', 'dzi'].includes(extension || '');
-                    const isZip = extension === 'zip';
-
-                    uploadedFiles.push({
-                        fieldId: field.id,
-                        filePath: storageKey,
-                        fileName: file.name,
-                        extension: extension || '',
-                        isImage: isImage && !isZip
-                    });
-                }
-            }*/
 
             const hasFiles = uploadedFiles.length > 0;
             const allFilesBecameDataFiles = uploadedFiles.every((f) => f.isImage);
@@ -203,25 +213,6 @@ export const createData = authedProcedure
                     fields.push({ fieldId: field.id, value: input[`fields[${field.id}]`] as string});
                 }
             }
-            /*
-
-            const uploadedFileByFieldId = new Map(
-                uploadedFiles.map((f)=> [f.fieldId, f.filePath])
-            );
-
-            const fields = sourceType.fields.map((field) => {
-                const value =
-                    field.type === "FILE"
-                        ? uploadedFileByFieldId.get(field.id)!
-                        : (input[`fields[${field.id}]`] as string);
-
-                return {
-                    fieldId: field.id,
-                    value,
-                };
-            });
-
-            */
 
             await prisma.source.create({
                 data: {
