@@ -119,27 +119,6 @@ export default function UploadForm({ project, sourceTypes }: Props) {
                         </FormItem>
                     )}
                 />
-                <FormField
-                    control={form.control}
-                    name="destination"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Destination</FormLabel>
-                            <FormControl>
-                                <select
-                                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                                    value={field.value}
-                                    onChange={field.onChange}
-                                >
-                                    <option value="MANUAL">Manual Annotation</option>
-                                    <option value="ML">Machine Learning</option>
-                                    <option value="HEADWORK">Headwork</option>
-                                </select>
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
                 <UploadFields form={form} formFields={formFields} fields={fields} />
                 <div className="flex justify-end">
                     <SubmitButton text={t('submit')} />
