@@ -55,6 +55,35 @@ export async function createExpertAnnotation(
   });
 }
 
+/** What the class code sent with an upload turned out to be. */
+export type ExpertCodeLookup =
+  | { status: "ABSENT" }
+  | { status: "FOUND"; code: string; classTypeId: string }
+  | { status: "UNKNOWN"; code: string };
+
+/**
+ * Looks up the class code sent with an uploaded image (label file of a zip, or the
+ * dropdown of a small batch). Any ACTIVE class of the project is accepted, parent or
+ * leaf. An unknown code is reported, never guessed.
+ */
+export async function resolveExpertCode(
+  db: Pick<PrismaTx, "classType">,
+  projectId: string,
+  rawCode: string | null | undefined
+): Promise<ExpertCodeLookup> {
+  const code = (rawCode ?? "").trim();
+  if (!code) return { status: "ABSENT" };
+
+  const classType = await db.classType.findFirst({
+    where: { projectId, code, status: "ACTIVE" },
+    select: { id: true, code: true },
+  });
+  if (!classType || classType.code === null) return { status: "UNKNOWN", code };
+
+  // The stored code, not the received one: it is what goes into the object metadata.
+  return { status: "FOUND", code: classType.code, classTypeId: classType.id };
+}
+
 /**
  * Creates one image-level ML annotation with up to 3 labels.
  * Labels are ranked by confidence (highest = rank 1), whatever order they arrive in;
