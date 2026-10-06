@@ -1,5 +1,6 @@
 "use server"
 
+import { z } from "zod";
 import { createDataInputSchema, destinationSchema } from "@/lib/validation-schemas/data";
 import { authedProcedure } from "@/lib/zsa-procedures";
 import { putObject, deleteObject } from "@/lib/storage";
@@ -79,7 +80,6 @@ export const createData = authedProcedure
         // Change:  A FILE field can now hold several files and always work with an array
 
         const filesOf = (fieldId: string) : File[] => {
-            console.log("filesOf", fieldId, input[`fields[${fieldId}]`]); // TEMP
             const raw = input[`fields[${fieldId}]`];
             const list = Array.isArray(raw) ? raw : [raw];
             return list.filter((v): v is File => v instanceof File && v.size > 0);
@@ -109,21 +109,13 @@ export const createData = authedProcedure
         });
 
         // Validate each fields
-        let imageCount = 0;
-
-        for (const field of sourceType.fields) { 
+        for (const field of sourceType.fields) {
             if (field.type !== "FILE") continue;
             const files = filesOf(field.id);
-            if (files.length === 0) throw new Error (`Field ${field.label} is required`);
-
-            const images = files.filter((f) => isImageFileName(f.name));
-            if (files.length > 1 && images.length !== files.length) {
-                throw new Error(`Field ${field.label}: several files must all be images. Upload a zip on its own.`);
+            if (files.length === 0) throw new Error(`Field ${field.label} is required`);
+            if (files.length > 1) {
+                throw new Error(`Field ${field.label} accepts one file. For larger sets, upload a zip.`);
             }
-            imageCount += images.length;
-        }  
-        if (imageCount > MAX_BATCH_IMAGES) {
-            throw new Error(`Up to ${MAX_BATCH_IMAGES} images per upload. For larger sets, upload a zip.`);
         }
 
         const project = await prisma.project.findFirst({
@@ -146,7 +138,7 @@ export const createData = authedProcedure
             if (files.length === 1 && isImageFileName(files[0].name)) {
                 await storeImageSource(prisma, project, sourceTypeId, singleFieldId, files[0]);
                 revalidatePath(`/projects/${project.slug}/data`);
-                redirect(`/project/${project.slug}/data`);
+                redirect(`/projects/${project.slug}/data`);
             }
         }
 
@@ -253,3 +245,71 @@ export const createData = authedProcedure
         revalidatePath(`/projects/${project.slug}/data`);
         redirect(`/projects/${project.slug}/data`)
     })
+
+    const createImageBatchInput = z.object({
+        sourceTypeId: z.string().min(1),
+        files: z.union([z.instanceof(File), z.array(z.instanceof(File))]),
+    });
+
+    export const createImageBatch = authedProcedure
+        .createServerAction()
+        .input(createImageBatchInput, {
+            type: "formData"
+        })
+        .handler(async ({ input, ctx }) => {
+            const { prisma } = ctx;
+
+            const files = (Array.isArray(input.files) ? input.files :  [input.files])
+                .filter((file) => file.size > 0);
+
+            if (files.length === 0) {
+                throw new Error("Choose at least one image.");
+            }
+            if (files.length > MAX_BATCH_IMAGES) {
+                throw new Error (`Up to ${MAX_BATCH_IMAGES} images per upload. For larger sets, upload a zip.`);
+            }
+            const notImages = files.filter((file) => !isImageFileName(file.name));
+            if (notImages.length > 0) {
+                throw new Error(`Only images can be uploaded together. Not an image: ${notImages.map((file) => file.name).join(", ")}`);
+            }
+
+            const sourceType = await prisma.sourceType.findUnique({
+                where: { id: input.sourceTypeId },
+                include: { fields: true },
+            });
+            if (!sourceType) {
+                throw new Error("Source type not found");
+            }
+
+            const fieldId = singleFileFieldId(sourceType);
+            if (!fieldId) {
+                throw new Error("This data type does not accept several images.");
+            }
+
+            const project = await prisma.project.findUnique({
+                where: { id: sourceType.projectId },
+            });
+            if (!project) {
+                throw new Error("Project not found");
+            }
+
+            let uploaded = 0;
+            const failed: Array<{ name: string; reason: string }>  = [];
+
+            for (const file of files) {
+                try {
+                    await storeImageSource(prisma, project, sourceType.id, fieldId, file);
+                    uploaded++;
+                } catch (error) {
+                    console.error(`Batch upload: ${file.name} could not be stored:`, error);
+                    failed.push({ name: file.name, reason: "Could not be stored. Try again." });
+                }
+            }
+
+            if (uploaded > 0) {
+                revalidatePath(`/projects/${project.slug}/data`);
+            }
+
+            return { uploaded, failed };
+        })
+    
