@@ -29,13 +29,21 @@ import {
 } from "@/app/_components/ui/select";
 import { Label } from "@/app/_components/ui/label";
 import { useToast } from "@/app/_components/ui/use-toast";
-import { Plus, Search, Edit, Trash2, AlertCircle } from "lucide-react";
+import { Plus, Search, Edit, Trash2, AlertCircle, Upload } from "lucide-react";
 import { Badge } from "@/app/_components/ui/badge";
 import { Alert, AlertDescription } from "@/app/_components/ui/alert";
+import type { ImportSummary } from "@/lib/class-types-import";
 
 interface ClassType {
   id: string;
   name: string;
+  /** Code of the imported class list (e.g. "1.7.3"); null for a class typed by hand.
+   */
+  code: string | null;
+  position: number | null;
+  /**Id of the parent class, when the class is a sub-class
+   */
+  relatedId: string | null;
   status: "ACTIVE" | "INACTIVE";
   createdAt: string;
   _count: {
@@ -67,6 +75,13 @@ export function ClassTypesClient({ slug, readOnly }: Props) {
   // Form states
   const [formName, setFormName] = useState("");
   const [formSubmitting, setFormSubmitting] = useState(false);
+
+  //Import states
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importCsv, setImportCsv] = useState<string | null>(null);
+  const [importSummary, setImportSummary] = useState<ImportSummary | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
 
   // Load class types
   const loadClassTypes = async () => {
@@ -243,6 +258,76 @@ export function ClassTypesClient({ slug, readOnly }: Props) {
     setDeleteDialogOpen(true);
   };
 
+  // Import: the file is first sent as a dry run, so the dialog can show what the
+  // import would do; nothing is written until the user confirms.
+  const runImport = async (csv: string, dryRun: boolean): Promise<ImportSummary> => {
+    const response = await fetch(`/api/projects/${slug}/class-types/import`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ csv, dryRun }),
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok) {
+      // A rejected file (400) or a conflict (409) comes with a message written for the user.
+      const isFileProblem =
+        (response.status === 400 || response.status === 409) &&
+        typeof data?.error === "string" &&
+        !data.details;
+      throw new Error(isFileProblem ? data.error : t("import.errors.failed"));
+    }
+    return data as ImportSummary;
+  };
+
+  const handleImportFile = async (file: File | undefined) => {
+    setImportCsv(null);
+    setImportSummary(null);
+    setImportError(null);
+    if (!file) return;
+
+    try {
+      setImporting(true);
+      const csv = await file.text();
+      if (!csv.trim()) {
+        setImportError(t("import.errors.emptyFile"));
+        return;
+      }
+      const summary = await runImport(csv, true);
+      setImportCsv(csv);
+      setImportSummary(summary);
+    } catch (error) {
+      setImportError(error instanceof Error ? error.message : t("import.errors.failed"));
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const closeImportDialog = () => {
+    setImportDialogOpen(false);
+    setImportCsv(null);
+    setImportSummary(null);
+    setImportError(null);
+  };
+
+  const handleImportConfirm = async () => {
+    if (!importCsv) return;
+
+    try {
+      setImporting(true);
+      await runImport(importCsv, false);
+      toast({ title: t("import.success") });
+      closeImportDialog();
+      loadClassTypes();
+    } catch (error) {
+      setImportError(error instanceof Error ? error.message : t("import.errors.failed"));
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const importChanges = importSummary
+    ? importSummary.created.length + importSummary.adopted.length + importSummary.updated.length
+    : 0;
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -274,10 +359,20 @@ export function ClassTypesClient({ slug, readOnly }: Props) {
             </SelectContent>
           </Select>
         </div>
-        <Button onClick={() => setAddDialogOpen(true)} disabled={readOnly}>
-          <Plus className="h-4 w-4 mr-2" />
-          {t("addNew")}
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setImportDialogOpen(true)}
+            disabled={readOnly}
+          >
+            <Upload className="h-4 w-4 mr-2" />
+            {t("import.button")}
+          </Button>
+          <Button onClick={() => setAddDialogOpen(true)} disabled={readOnly}>
+            <Plus className="h-4 w-4 mr-2" />
+            {t("addNew")}
+          </Button>
+        </div>
       </div>
 
       {/* Table */}
@@ -285,6 +380,7 @@ export function ClassTypesClient({ slug, readOnly }: Props) {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>{t("table.code")}</TableHead>
               <TableHead>{t("table.name")}</TableHead>
               <TableHead>{t("table.status")}</TableHead>
               <TableHead>{t("table.created")}</TableHead>
@@ -295,13 +391,13 @@ export function ClassTypesClient({ slug, readOnly }: Props) {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8">
+                <TableCell colSpan={6} className="text-center py-8">
                   {t("loading", { ns: "Common" })}...
                 </TableCell>
               </TableRow>
             ) : filteredClassTypes.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8">
+                <TableCell colSpan={6} className="text-center py-8">
                   <div className="flex flex-col items-center gap-2">
                     <AlertCircle className="h-8 w-8 text-muted-foreground" />
                     <p className="font-medium">{t("empty")}</p>
@@ -312,7 +408,11 @@ export function ClassTypesClient({ slug, readOnly }: Props) {
             ) : (
               filteredClassTypes.map((classType) => (
                 <TableRow key={classType.id}>
-                  <TableCell className="font-medium">{classType.name}</TableCell>
+                  <TableCell className="font-mono text-sm text-muted-foreground">
+                    {classType.code ?? ""}</TableCell>
+                  <TableCell className={classType.relatedId ? "font-medium pl-8" : "font-medium"}>
+                    {classType.name}
+                  </TableCell>
                   <TableCell>
                     <Badge
                       variant={classType.status === "ACTIVE" ? "default" : "secondary"}
@@ -467,6 +567,72 @@ export function ClassTypesClient({ slug, readOnly }: Props) {
             </Button>
             <Button variant="destructive" onClick={handleDelete} disabled={formSubmitting}>
               {formSubmitting ? t("submitting", { ns: "Common" }) : t("dialog.delete.confirm")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Import Dialog */}
+      <Dialog
+        open={importDialogOpen}
+        onOpenChange={(open) => (open ? setImportDialogOpen(true) : closeImportDialog())}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("import.title")}</DialogTitle>
+            <DialogDescription>{t("import.description")}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="import-file">{t("import.file")}</Label>
+              <Input
+                id="import-file"
+                type="file"
+                accept=".csv,text/csv"
+                disabled={importing}
+                onChange={(e) => handleImportFile(e.target.files?.[0])}
+              />
+            </div>
+
+            {importError && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{importError}</AlertDescription>
+              </Alert>
+            )}
+
+            {importSummary && (
+              <Alert>
+                <AlertDescription>
+                  {importChanges === 0 ? (
+                    <p>{t("import.summary.nothingToDo")}</p>
+                  ) : (
+                    <ul className="list-disc pl-5 space-y-1">
+                      <li>{t("import.summary.created", { count: importSummary.created.length })}</li>
+                      <li>{t("import.summary.adopted", { count: importSummary.adopted.length })}</li>
+                      <li>{t("import.summary.updated", { count: importSummary.updated.length })}</li>
+                      <li>{t("import.summary.unchanged", { count: importSummary.unchanged })}</li>
+                    </ul>
+                  )}
+                  {importSummary.notInFile.length > 0 && (
+                    <p className="mt-3">
+                      {t("import.summary.notInFile", { count: importSummary.notInFile.length })}{" "}
+                      {importSummary.notInFile.map((classType) => classType.name).join(", ")}
+                    </p>
+                  )}
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={closeImportDialog}>
+              {t("dialog.delete.cancel")}
+            </Button>
+            <Button
+              onClick={handleImportConfirm}
+              disabled={importing || !importCsv || importChanges === 0}
+            >
+              {importing ? t("import.working") : t("import.confirm")}
             </Button>
           </DialogFooter>
         </DialogContent>

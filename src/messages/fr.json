@@ -219,6 +219,7 @@
       "allStatuses": "Tous les statuts",
       "loading": "Chargement",
       "table": {
+        "code": "Code",
         "name": "Nom",
         "status": "Statut",
         "created": "Créé",
@@ -269,6 +270,27 @@
         "deleted": "Type de classe supprimé avec succès",
         "activated": "Type de classe activé",
         "deactivated": "Type de classe désactivé"
+      },
+      "import": {
+        "button": "Importer",
+        "title": "Importer la liste des classes",
+        "description": "Choisissez le fichier de la liste des classes (classes.csv). Vous verrez ce qui va changer avant tout enregistrement.",
+        "file": "Fichier de la liste des classes",
+        "confirm": "Importer",
+        "working": "Veuillez patienter...",
+        "success": "Liste des classes importée",
+        "summary": {
+          "created": "{count, plural, =0 {Aucune nouvelle classe} one {# nouvelle classe} other {# nouvelles classes}}",
+          "adopted": "{count, plural, =0 {Aucune classe existante ne recevra de code} one {# classe existante recevra un code} other {# classes existantes recevront un code}}",
+          "updated": "{count, plural, =0 {Aucune classe ne sera modifiée} one {# classe sera modifiée} other {# classes seront modifiées}}",
+          "unchanged": "{count, plural, =0 {Aucune classe n'est déjà à jour} one {# classe est déjà à jour} other {# classes sont déjà à jour}}",
+          "notInFile": "{count, plural, one {# classe de ce projet n'est pas dans le fichier et ne sera pas modifiée :} other {# classes de ce projet ne sont pas dans le fichier et ne seront pas modifiées :}}",
+          "nothingToDo": "La liste des classes est déjà à jour. Rien ne changera."
+        },
+        "errors": {
+          "failed": "La liste des classes n'a pas pu être importée. Veuillez réessayer.",
+          "emptyFile": "Le fichier est vide."
+        }
       },
       "errors": {
         "load": "Échec du chargement des types de classes",

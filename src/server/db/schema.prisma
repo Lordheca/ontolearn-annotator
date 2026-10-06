@@ -319,11 +319,22 @@ model ClassType {
   project         Project          @relation(fields: [projectId], references: [id])
   projectId       String
   name            String
+  // Stable key shared with the ML side (classes.csv "code"), e.g. "1.7.3".
+  // Null for classes typed by hand.
+  code            String?
+  // Row order of the imported list = the model's output order. Null when not imported.
+  position        Int?
   status          ClassTypeStatus  @default(ACTIVE)
+  // Parent class in the hierarchy ("1.7.3" -> the ClassType with code "1.7").
   relatedId       String?
+  parent          ClassType?       @relation("ClassTypeHierarchy", fields: [relatedId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  children        ClassType[]      @relation("ClassTypeHierarchy")
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   annotationTypes AnnotationType[]
+
+  @@unique([projectId, code])
+  @@index([relatedId])
 }
 
 model AreaOfInterest {

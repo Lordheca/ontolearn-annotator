@@ -219,6 +219,7 @@
       "allStatuses": "All Statuses",
       "loading": "Loading",
       "table": {
+        "code": "Code",
         "name": "Name",
         "status": "Status",
         "created": "Created",
@@ -269,6 +270,27 @@
         "deleted": "Class type deleted successfully",
         "activated": "Class type activated",
         "deactivated": "Class type deactivated"
+      },
+      "import": {
+        "button": "Import",
+        "title": "Import class list",
+        "description": "Choose the class list file (classes.csv). You will see what is going to change before anything is saved.",
+        "file": "Class list file",
+        "confirm": "Import",
+        "working": "Please wait...",
+        "success": "Class list imported",
+        "summary": {
+          "created": "{count, plural, =0 {No new classes} one {# new class} other {# new classes}}",
+          "adopted": "{count, plural, =0 {No existing class will receive a code} one {# existing class will receive a code} other {# existing classes will receive a code}}",
+          "updated": "{count, plural, =0 {No class will be changed} one {# class will be changed} other {# classes will be changed}}",
+          "unchanged": "{count, plural, =0 {No class is already up to date} one {# class is already up to date} other {# classes are already up to date}}",
+          "notInFile": "{count, plural, one {# class of this project is not in the file and will not be touched:} other {# classes of this project are not in the file and will not be touched:}}",
+          "nothingToDo": "The class list is already up to date. Nothing will change."
+        },
+        "errors": {
+          "failed": "The class list could not be imported. Please try again.",
+          "emptyFile": "The file is empty."
+        }
       },
       "errors": {
         "load": "Failed to load class types",

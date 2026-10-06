@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/server/auth";
 import { db } from "@/server/db";
 import { PermissionDeniedError, requireRead } from "@/lib/abac-guards";
+import { sortByPosition } from "@/lib/class-types-order";
 
 export async function GET(
   request: NextRequest,
@@ -61,8 +62,9 @@ export async function GET(
       },
     });
 
+    // Legend order for imported classes, then the hand-typed ones by name.
     // Filter out excluded types and return as array of strings
-    const filteredClassTypes = classTypes
+    const filteredClassTypes = sortByPosition(classTypes)
       .map(ct => ct.name)
       .filter(name => !excludeList.includes(name));
 
