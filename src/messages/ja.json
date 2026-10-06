@@ -69,6 +69,14 @@
   "Data": {
     "Form": {
       "dataUploaded": "データは正常にアップロードされました。",
+      "batchSelect": "画像",
+      "batchHint": "最大{max}枚の画像を選択できます。それ以上はzipでアップロードしてください。",
+      "batchTooMany": "1回のアップロードは最大{max}枚です。それ以上はzipでアップロードしてください。",
+      "batchNotImage": "画像のみ追加できます。追加されなかったファイル：{names}",
+      "batchRemove": "削除",
+      "batchNoFiles": "画像を1枚以上選択してください。",
+      "batchUploaded": "{count}枚の画像をアップロードしました",
+      "batchFailed": "次の画像はアップロードできませんでした：",
       "sourceType": "ソースタイプ",
       "submit": "アップロード",
       "title": "データのアップロード"

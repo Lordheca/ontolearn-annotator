@@ -1,14 +1,15 @@
 "use client";
 
-import { createData } from "@/actions/data";
+import { createData, createImageBatch } from "@/actions/data";
 import { createDataInputSchema } from "@/lib/validation-schemas/data";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Prisma, Project } from "@prisma/client";
 import { AlertCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { redirect } from "next/navigation";
+import { redirect, useRouter } from "next/navigation";
+import { useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
-import { z } from "zod";
+import { string, z } from "zod";
 import { useServerAction } from 'zsa-react';
 import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "../ui/form";
@@ -16,6 +17,8 @@ import { SubmitButton } from "../ui/submit-button";
 import { useToast } from "../ui/use-toast";
 import SelectDataType from "./select-data-type";
 import UploadFields from "./upload-fields";
+import BatchFileList from "./batch-file-list";
+import { Button } from "../ui/button";
 
 export type SourceTypeWithFields = Prisma.SourceTypeGetPayload<{
     include: {
@@ -31,6 +34,10 @@ export type Props = {
 export default function UploadForm({ project, sourceTypes }: Props) {
     const { toast } = useToast();
     const t = useTranslations('Data.Form');
+    const router = useRouter();
+
+    const [batchFiles, setBatchFiles] = useState<File[]>([]);
+    const [batchFailed, setBatchFailed] = useState<Array<{ name: string; reason: string }>>([]);
 
     const form = useForm<z.infer<typeof createDataInputSchema>>({
         resolver: zodResolver(createDataInputSchema),
@@ -48,6 +55,8 @@ export default function UploadForm({ project, sourceTypes }: Props) {
     })
 
     const fields = sourceTypes.find((sourceType) => sourceType.id === form.getValues().sourceTypeId)?.fields || [];
+    const selectedSourceType = sourceTypes.find((sourceType) => sourceType.id === form.watch('sourceTypeId'));
+    const isBatch = selectedSourceType?.fields.length === 1 && selectedSourceType.fields[0].type === "FILE";
 
     const { execute, isPending, isError, error } = useServerAction(createData, {
         onError: ({ err }) => {
@@ -71,7 +80,21 @@ export default function UploadForm({ project, sourceTypes }: Props) {
         }
     });
 
-    const onSubmit = form.handleSubmit(async (data) => {
+    const batch = useServerAction(createImageBatch, {
+        onSuccess: ({ data }) => {
+            if (data.uploaded > 0) {
+                toast({ title: t('batchUploaded', { count: data.uploaded }) });
+            }
+            if (data.failed.length > 0) {
+                setBatchFailed(data.failed);
+                setBatchFiles((current) => current.filter((file) => data.failed.some((f) => f.name === file.name)));
+                return;
+            }
+            router.push(`/projects/${project.slug}/data`);
+        }
+    });
+
+    const submitData = form.handleSubmit(async (data) => {
         const formData = new FormData();
         formData.append('sourceTypeId', data.sourceTypeId); 
         formData.append('destination', data.destination);
@@ -90,6 +113,22 @@ export default function UploadForm({ project, sourceTypes }: Props) {
         execute(formData);
     })
 
+    const onSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+        if (!isBatch) {
+            submitData(event);
+            return;
+        }
+        event.preventDefault();
+        if (batchFiles.length === 0) return;
+
+        const formData = new FormData();
+        formData.append('sourceTypeId', form.getValues('sourceTypeId'));
+        batchFiles.forEach((file) => formData.append('files', file));
+
+        setBatchFailed([]);
+        batch.execute(formData);
+    };
+
     return (
         <Form {...form}>
             <form className="space-y-8" onSubmit={onSubmit}>
@@ -99,6 +138,26 @@ export default function UploadForm({ project, sourceTypes }: Props) {
                         <AlertTitle>{t('errorOccurred')}</AlertTitle>
                         <AlertDescription>
                             {error.message}
+                        </AlertDescription>
+                    </Alert>
+                )}
+                {batch.isError && (
+                    <Alert variant="destructive">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertTitle>{t('errorOccurred')}</AlertTitle>
+                        <AlertDescription>{batch.error.message}</AlertDescription>
+                    </Alert>
+                )}
+                {batchFailed.length > 0 && (
+                    <Alert variant="destructive">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertTitle>{t('batchFailed')}</AlertTitle>
+                        <AlertDescription>
+                            <ul className="list-disc pl-5">
+                                {batchFailed.map((f) => (
+                                    <li key={f.name}>{f.name}: {f.reason}</li>
+                                ))}
+                            </ul>
                         </AlertDescription>
                     </Alert>
                 )}
@@ -112,6 +171,8 @@ export default function UploadForm({ project, sourceTypes }: Props) {
                                 <SelectDataType dataTypes={sourceTypes} value={field.value} onValueChange={(value) => {
                                     const fields = sourceTypes.find((sourceType) => sourceType.id === value)?.fields || [];
                                     remove()
+                                    setBatchFiles([]);
+                                    setBatchFailed([]);
                                     fields.forEach((field) => {
                                         append({ id: field.id, value: '' })
                                     });
@@ -122,9 +183,19 @@ export default function UploadForm({ project, sourceTypes }: Props) {
                         </FormItem>
                     )}
                 />
-                <UploadFields form={form} formFields={formFields} fields={fields} />
+                {isBatch ? (
+                    <BatchFileList files={batchFiles} onFilesChange={setBatchFiles} disabled={batch.isPending} />
+                ) : (
+                    <UploadFields form={form} formFields={formFields} fields={fields} />
+                )}
                 <div className="flex justify-end">
-                    <SubmitButton text={t('submit')} />
+                    {isBatch ? (
+                        <Button type="submit" disabled={batchFiles.length === 0 || batch.isPending}>
+                            {t('submit')}
+                        </Button>
+                    ) : (
+                        <SubmitButton text={t('submit')} />
+                    )}
                 </div>
             </form>
         </Form>

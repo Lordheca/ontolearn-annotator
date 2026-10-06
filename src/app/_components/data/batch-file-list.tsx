@@ -1,0 +1,95 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
+import { X } from "lucide-react";
+import { MAX_BATCH_IMAGES, isImageFileName } from "@/lib/upload-limits";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+
+type Props = {
+    files: File[];
+    onFilesChange: (files: File[]) => void;
+    disabled?: boolean;
+};
+
+// File picker for ticket 06
+
+export default function BatchFileList({ files, onFilesChange, disabled }: Props) {
+    const t = useTranslations("Data.Form");
+    const [message, setMessage] = useState<string | null>(null);
+    const [previews, setPreviews] =  useState<string[]>([]);
+    const inputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        const urls = files.map((file) => URL.createObjectURL(file));
+        setPreviews(urls);
+        return () => urls.forEach((url) => URL.revokeObjectURL(url));
+    }, [files]);
+
+    const addFiles = (chosen: FileList | null) => {
+        if (!chosen) return;
+        const list = Array.from(chosen);
+        const images = list.filter((file) => isImageFileName(file.name));
+        const notImages = list.filter((file) => !isImageFileName(file.name));
+
+        if (files.length + images.length > MAX_BATCH_IMAGES) {
+            setMessage(t("batchTooMany", { max: MAX_BATCH_IMAGES}));
+        } else {
+            onFilesChange([...files, ...images]);
+            setMessage(
+                notImages.length > 0
+                    ? t("batchNotImage", { names: notImages.map((file) => file.name).join(", ") })
+                    : null
+            );
+        }
+
+        if (inputRef.current) inputRef.current.value = "";
+    };
+
+    const removeAt = (index: number) => {
+        onFilesChange(files.filter((_, i) => i !== index));
+        setMessage(null);
+    };
+
+    return (
+        <div className="space-y-3">
+            <label className="text-sm font-medium">{t("batchSelect")}</label>
+            <Input
+                ref={inputRef}
+                type="file"
+                multiple
+                accept="image/*"
+                disabled={disabled}
+                onChange={(event) => addFiles(event.target.files)}
+            />
+            <p className="text-sm text-muted-foreground">
+                {t("batchHint", { max: MAX_BATCH_IMAGES })}
+            </p>
+            {message && <p className="text-sm text-destructive">{message}</p>}
+
+            {files.length > 0 && (
+                <ul className="divide-y rounded-md border">
+                    {files.map((file, index) => (
+                        <li key={`${file.name}-${index}`} className="flex items-center gap-3 p-2">
+                            {previews[index] && (
+                                <img src={previews[index]} alt="" className="h-12 w-12 rounded object-cover" />
+                            )}
+                            <span className="flex-1 truncate text-sm">{file.name}</span>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                disabled={disabled}
+                                onClick={() => removeAt(index)}
+                                aria-label={t("batchRemove")}
+                            >
+                                <X className="h-4 w-4" />
+                            </Button>
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </div>
+    )
+};

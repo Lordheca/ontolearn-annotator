@@ -69,6 +69,14 @@
   "Data": {
     "Form": {
       "dataUploaded": "Données téléversées avec succès.",
+      "batchSelect": "Images",
+      "batchHint": "Choisissez jusqu’à {max} images. Pour un ensemble plus grand, envoyez un zip.",
+      "batchTooMany": "{max} images au maximum par envoi. Pour un ensemble plus grand, envoyez un zip.",
+      "batchNotImage": "Seules les images peuvent être ajoutées. Non ajoutées : {names}",
+      "batchRemove": "Retirer",
+      "batchNoFiles": "Choisissez au moins une image.",
+      "batchUploaded": "{count, plural, one {# image envoyée} other {# images envoyées}}",
+      "batchFailed": "Ces images n’ont pas pu être envoyées :",
       "errorOccurred": "Une erreur s'est produite.",
       "sourceType": "Type de source",
       "submit": "Téléverser",

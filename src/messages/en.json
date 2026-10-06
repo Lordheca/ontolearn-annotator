@@ -69,6 +69,14 @@
   "Data": {
     "Form": {
       "dataUploaded": "Data uploaded successfully.",
+      "batchSelect": "Images",
+      "batchHint": "Choose up to {max} images. For larger sets, upload a zip.",
+      "batchTooMany": "Up to {max} images per upload. For larger sets, upload a zip.",
+      "batchNotImage": "Only images can be added. Not added: {names}",
+      "batchRemove": "Remove",
+      "batchNoFiles": "Choose at least one image.",
+      "batchUploaded": "{count, plural, one {# image uploaded} other {# images uploaded}}",
+      "batchFailed": "These images could not be uploaded:",
       "errorOccurred": "Error occurred.",
       "sourceType": "Source Type",
       "submit": "Upload",
