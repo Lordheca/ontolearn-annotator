@@ -257,7 +257,7 @@ export const createData = authedProcedure
     const createImageBatchInput = z.object({
         sourceTypeId: z.string().min(1),
         files: z.union([z.instanceof(File), z.array(z.instanceof(File))]),
-        expertClassTypeIds: z.union([z.string(), z.string(z.string())]).optional(),
+        expertClassTypeIds: z.union([z.string(), z.array(z.string())]).optional(),
     });
 
     export const createImageBatch = authedProcedure
@@ -268,8 +268,19 @@ export const createData = authedProcedure
         .handler(async ({ input, ctx }) => {
             const { prisma } = ctx;
 
-            const files = (Array.isArray(input.files) ? input.files :  [input.files])
-                .filter((file) => file.size > 0);
+            const rawFiles = Array.isArray(input.files) ? input.files : [input.files];
+            const rawClassIds = input.expertClassTypeIds === undefined
+                ? []
+                : Array.isArray(input.expertClassTypeIds) ? input.expertClassTypeIds : [input.expertClassTypeIds];
+            
+            if (rawClassIds.length > 0 && rawClassIds.length !== rawFiles.length) {
+                throw new Error("Each image needs one category entry.");
+            }
+
+            const items = rawFiles
+                .map((file, index) => ({ file, expertClassTypeId: rawClassIds[index] || undefined }))
+                .filter((item) => item.file.size > 0);
+            const files = items.map((item) => item.file);
 
             if (files.length === 0) {
                 throw new Error("Choose at least one image.");
@@ -306,12 +317,27 @@ export const createData = authedProcedure
                 throw new Error("You do not have permission to upload data to this project.");
             }
 
+            const chosenIds = Array.from(new Set(
+                items.flatMap((item) => (item.expertClassTypeId ? [item.expertClassTypeId] : []))
+            ));
+            const chosenClasses = chosenIds.length === 0 ? [] : await prisma.classType.findMany({
+                where: { id: { in: chosenIds }, projectId: project.id, status: "ACTIVE" },
+                select: { id: true, code: true },
+            });
+            if (chosenClasses.length !== chosenIds.length) {
+                throw new Error("One of the chosen categories is not an active label of this project.");
+            }
+            const codeByClassId = new Map(chosenClasses.map((c) => [c.id, c.code]));
+
             let uploaded = 0;
             const failed: Array<{ name: string; reason: string }>  = [];
 
-            for (const file of files) {
+            for (const { file, expertClassTypeId } of items) {
                 try {
-                    await storeImageSource(prisma, project, sourceType.id, fieldId, file);
+                    await storeImageSource(prisma, project, sourceType.id, fieldId, file, {
+                        expertClassTypeId,
+                        expertCode: expertClassTypeId ? codeByClassId.get(expertClassTypeId) ?? null : null,
+                    });
                     uploaded++;
                 } catch (error) {
                     console.error(`Batch upload: ${file.name} could not be stored:`, error);

@@ -7,25 +7,31 @@ import { MAX_BATCH_IMAGES, isImageFileName } from "@/lib/upload-limits";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 
+export type BatchItem = { file: File; classTypeId: string };
+
+export type ClassOption = { id: string; name: string; code: string | null };
+
 type Props = {
-    files: File[];
-    onFilesChange: (files: File[]) => void;
+    items: BatchItem[];
+    onItemsChange: (items: BatchItem[]) => void;
+    classTypes: ClassOption[];
     disabled?: boolean;
 };
 
 // File picker for ticket 06
 
-export default function BatchFileList({ files, onFilesChange, disabled }: Props) {
+export default function BatchFileList({ items, onItemsChange, classTypes, disabled }: Props) {
     const t = useTranslations("Data.Form");
     const [message, setMessage] = useState<string | null>(null);
     const [previews, setPreviews] =  useState<string[]>([]);
     const inputRef = useRef<HTMLInputElement>(null);
 
+    const fileKey = items.map((item) => `${item.file.name}:${item.file.size}:${item.file.lastModified}`).join("|");
     useEffect(() => {
-        const urls = files.map((file) => URL.createObjectURL(file));
+        const urls = items.map((item) => URL.createObjectURL(item.file));
         setPreviews(urls);
         return () => urls.forEach((url) => URL.revokeObjectURL(url));
-    }, [files]);
+    }, [fileKey]);
 
     const addFiles = (chosen: FileList | null) => {
         if (!chosen) return;
@@ -33,10 +39,10 @@ export default function BatchFileList({ files, onFilesChange, disabled }: Props)
         const images = list.filter((file) => isImageFileName(file.name));
         const notImages = list.filter((file) => !isImageFileName(file.name));
 
-        if (files.length + images.length > MAX_BATCH_IMAGES) {
+        if (items.length + images.length > MAX_BATCH_IMAGES) {
             setMessage(t("batchTooMany", { max: MAX_BATCH_IMAGES}));
         } else {
-            onFilesChange([...files, ...images]);
+            onItemsChange([...items, ...images.map((file) => ({ file, classTypeId: "" }))]);
             setMessage(
                 notImages.length > 0
                     ? t("batchNotImage", { names: notImages.map((file) => file.name).join(", ") })
@@ -48,8 +54,13 @@ export default function BatchFileList({ files, onFilesChange, disabled }: Props)
     };
 
     const removeAt = (index: number) => {
-        onFilesChange(files.filter((_, i) => i !== index));
+        onItemsChange(items.filter((_, i) => i !== index));
         setMessage(null);
+    };
+
+
+    const setCategory = (index: number, classTypeId: string) => {
+        onItemsChange(items.map((item, i) => (i === index ? {...item, classTypeId } : item)));
     };
 
     return (
@@ -68,14 +79,33 @@ export default function BatchFileList({ files, onFilesChange, disabled }: Props)
             </p>
             {message && <p className="text-sm text-destructive">{message}</p>}
 
-            {files.length > 0 && (
+            {items.length > 0 && (
                 <ul className="divide-y rounded-md border">
-                    {files.map((file, index) => (
-                        <li key={`${file.name}-${index}`} className="flex items-center gap-3 p-2">
+                    {items.map((item, index) => (
+                        <li key={`${item.file.name}-${index}`} className="flex items-center gap-3 p-2">
                             {previews[index] && (
                                 <img src={previews[index]} alt="" className="h-12 w-12 rounded object-cover" />
                             )}
-                            <span className="flex-1 truncate text-sm">{file.name}</span>
+                            <span className="flex-1 truncate text-sm">{item.file.name}</span>
+                            {}
+                            {classTypes.length > 0 && (
+                                <select
+                                    className="h-9 max-w-[45%] rounded-md border bg-background px-2 text-sm"
+                                    value={item.classTypeId}
+                                    disabled={disabled}
+                                    onChange={(event) => setCategory(index, event.target.value)}
+                                    aria-label={t("batchExpertCategory")}
+                                    title={t("batchExpertCategory")}
+                                >
+                                    <option value="">{t("batchNoCategory")}</option>
+                                    {classTypes.map((classType) => (
+                                        <option key={classType.id} value={classType.id}>
+                                            {classType.code ? `${classType.code} ${classType.name}` : classType.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            )}
+
                             <Button
                                 type="button"
                                 variant="ghost"
@@ -91,5 +121,5 @@ export default function BatchFileList({ files, onFilesChange, disabled }: Props)
                 </ul>
             )}
         </div>
-    )
-};
+    );
+}

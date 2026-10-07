@@ -7,9 +7,9 @@ import { Prisma, Project } from "@prisma/client";
 import { AlertCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { redirect, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
-import { string, z } from "zod";
+import { z } from "zod";
 import { useServerAction } from 'zsa-react';
 import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "../ui/form";
@@ -17,7 +17,7 @@ import { SubmitButton } from "../ui/submit-button";
 import { useToast } from "../ui/use-toast";
 import SelectDataType from "./select-data-type";
 import UploadFields from "./upload-fields";
-import BatchFileList from "./batch-file-list";
+import BatchFileList, { BatchItem, ClassOption } from "./batch-file-list";
 import { Button } from "../ui/button";
 
 export type SourceTypeWithFields = Prisma.SourceTypeGetPayload<{
@@ -36,7 +36,8 @@ export default function UploadForm({ project, sourceTypes }: Props) {
     const t = useTranslations('Data.Form');
     const router = useRouter();
 
-    const [batchFiles, setBatchFiles] = useState<File[]>([]);
+    const [batchItems, setBatchItems] = useState<BatchItem[]>([]);
+    const [classTypes, setClassTypes] = useState<ClassOption[]>([]);
     const [batchFailed, setBatchFailed] = useState<Array<{ name: string; reason: string }>>([]);
 
     const form = useForm<z.infer<typeof createDataInputSchema>>({
@@ -57,6 +58,22 @@ export default function UploadForm({ project, sourceTypes }: Props) {
     const fields = sourceTypes.find((sourceType) => sourceType.id === form.getValues().sourceTypeId)?.fields || [];
     const selectedSourceType = sourceTypes.find((sourceType) => sourceType.id === form.watch('sourceTypeId'));
     const isBatch = selectedSourceType?.fields.length === 1 && selectedSourceType.fields[0].type === "FILE";
+
+    useEffect(() => {
+        if (!isBatch) return;
+        let cancelled = false;
+        fetch(`/api/projects/${project.slug}/class-types?status=ACTIVE`)
+            .then ((response) => (response.ok ? response.json() : []))
+            .then ((rows: ClassOption[]) => {
+                if (!cancelled) setClassTypes(rows.map(({ id, name, code }) => ({ id, name, code})));
+            })
+            .catch(() => {
+                if (!cancelled) setClassTypes([]);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [isBatch, project.slug]);
 
     const { execute, isPending, isError, error } = useServerAction(createData, {
         onError: ({ err }) => {
@@ -87,7 +104,7 @@ export default function UploadForm({ project, sourceTypes }: Props) {
             }
             if (data.failed.length > 0) {
                 setBatchFailed(data.failed);
-                setBatchFiles((current) => current.filter((file) => data.failed.some((f) => f.name === file.name)));
+                setBatchItems((current) => current.filter((item) => data.failed.some((f) => f.name === item.file.name)));
                 return;
             }
             router.push(`/projects/${project.slug}/data`);
@@ -118,12 +135,14 @@ export default function UploadForm({ project, sourceTypes }: Props) {
             return;
         }
         event.preventDefault();
-        if (batchFiles.length === 0) return;
+        if (batchItems.length === 0) return;
 
         const formData = new FormData();
         formData.append('sourceTypeId', form.getValues('sourceTypeId'));
-        batchFiles.forEach((file) => formData.append('files', file));
-
+        batchItems.forEach((item) => {
+            formData.append('files', item.file);
+            formData.append('expertClassTypeIds', item.classTypeId);
+        });
         setBatchFailed([]);
         batch.execute(formData);
     };
@@ -170,7 +189,7 @@ export default function UploadForm({ project, sourceTypes }: Props) {
                                 <SelectDataType dataTypes={sourceTypes} value={field.value} onValueChange={(value) => {
                                     const fields = sourceTypes.find((sourceType) => sourceType.id === value)?.fields || [];
                                     remove()
-                                    setBatchFiles([]);
+                                    setBatchItems([]);
                                     setBatchFailed([]);
                                     fields.forEach((field) => {
                                         append({ id: field.id, value: '' })
@@ -183,13 +202,13 @@ export default function UploadForm({ project, sourceTypes }: Props) {
                     )}
                 />
                 {isBatch ? (
-                    <BatchFileList files={batchFiles} onFilesChange={setBatchFiles} disabled={batch.isPending} />
+                    <BatchFileList items={batchItems} onItemsChange={setBatchItems} classTypes={classTypes} disabled={batch.isPending} />
                 ) : (
                     <UploadFields form={form} formFields={formFields} fields={fields} />
                 )}
                 <div className="flex justify-end">
                     {isBatch ? (
-                        <Button type="submit" disabled={batchFiles.length === 0 || batch.isPending}>
+                        <Button type="submit" disabled={batchItems.length === 0 || batch.isPending}>
                             {t('submit')}
                         </Button>
                     ) : (

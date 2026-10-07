@@ -77,6 +77,8 @@
       "batchNoFiles": "Choisissez au moins une image.",
       "batchUploaded": "{count, plural, one {# image envoyée} other {# images envoyées}}",
       "batchFailed": "Ces images n’ont pas pu être envoyées :",
+      "batchExpertCategory": "Catégorie de l’expert",
+      "batchNoCategory": "Aucune catégorie",
       "errorOccurred": "Une erreur s'est produite.",
       "sourceType": "Type de source",
       "submit": "Téléverser",
