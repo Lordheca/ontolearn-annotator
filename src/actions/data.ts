@@ -10,6 +10,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { PrismaClient, SourceStatus } from "@prisma/client";
 import { MAX_BATCH_IMAGES, extensionOf, isImageFileName } from "@/lib/upload-limits";
 import { checkPermission } from "@/lib/abac-client";
+import { createExpertAnnotation } from "@/lib/annotations";
 
 export type FormState = {
     message: string;
@@ -28,7 +29,7 @@ async function storeImageSource(
     sourceTypeId: string,
     fieldId: string,
     file: File,
-    opts?: { expertClassTypeId?: string }
+    opts?: { expertClassTypeId?: string; expertCode?: string | null }
 ): Promise<{ sourceId: string; dataFileId: string }> {
     const extension = extensionOf(file.name);
     const storageKey = `uploads/manual/${uuidv4()}.${extension}`;
@@ -36,27 +37,33 @@ async function storeImageSource(
     await putObject(storageKey, Buffer.from(await file.arrayBuffer()), file.type || "application/octet-stream");
 
     try {
-        const source = await prisma.source.create({
-            data: {
-                name: "New data",
-                sourceTypeId,
-                projectId: project.id,
-                status: "COMPLETED",
-                destination: "MANUAL",
-                fields: {create: [{ fieldId, value: storageKey }] },
-                dataFiles: {
-                    create: [{
-                        name: file.name,
-                        filePath: storageKey,
-                        type: extension === "dzi" ? "DEEP_ZOOM_IMAGE" : "IMAGE",
-                        destination: "MANUAL",
-                    }],
+        return await prisma.$transaction(async (tx) => {
+            const source = await prisma.source.create({
+                data: {
+                    name: "New data",
+                    sourceTypeId,
+                    projectId: project.id,
+                    status: "COMPLETED",
+                    destination: "MANUAL",
+                    fields: {create: [{ fieldId, value: storageKey }] },
+                    dataFiles: {
+                        create: [{
+                            name: file.name,
+                            filePath: storageKey,
+                            type: extension === "dzi" ? "DEEP_ZOOM_IMAGE" : "IMAGE",
+                            destination: "MANUAL",
+                        }],
+                    },
                 },
-            },
-            include: {dataFiles: { select: {id: true } } },
-        });
+                include: {dataFiles: { select: {id: true } } },
+            });
 
-        return { sourceId: source.id, dataFileId: source.dataFiles[0].id };
+            const dataFileId = source.dataFiles[0].id;
+            if (opts?.expertClassTypeId) {
+                await createExpertAnnotation(tx, dataFileId, opts.expertClassTypeId);
+            }
+            return { sourceId: source.id, dataFileId };
+        });  
     } catch (error) {
         try {
             await deleteObject(storageKey);
@@ -250,6 +257,7 @@ export const createData = authedProcedure
     const createImageBatchInput = z.object({
         sourceTypeId: z.string().min(1),
         files: z.union([z.instanceof(File), z.array(z.instanceof(File))]),
+        expertClassTypeIds: z.union([z.string(), z.string(z.string())]).optional(),
     });
 
     export const createImageBatch = authedProcedure
