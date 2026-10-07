@@ -28,7 +28,6 @@ export default function UploadFields({ formFields, fields, form }: Props) {
                                     <FormControl>
                                         <Input
                                             type={fieldType === "STRING" ? "text" : "file"}
-                                            multiple={fieldType === "FILE"}
                                             {...form.register(`fields.${index}.value`)}
                                         />
                                     </FormControl>

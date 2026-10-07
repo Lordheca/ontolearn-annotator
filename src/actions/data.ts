@@ -9,6 +9,7 @@ import { redirect } from "next/navigation";
 import { v4 as uuidv4 } from 'uuid';
 import { PrismaClient, SourceStatus } from "@prisma/client";
 import { MAX_BATCH_IMAGES, extensionOf, isImageFileName } from "@/lib/upload-limits";
+import { checkPermission } from "@/lib/abac-client";
 
 export type FormState = {
     message: string;
@@ -291,6 +292,10 @@ export const createData = authedProcedure
             });
             if (!project) {
                 throw new Error("Project not found");
+            }
+
+            if (!(await checkPermission(project.id, "data:write"))) {
+                throw new Error("You do not have permission to upload data to this project.");
             }
 
             let uploaded = 0;
