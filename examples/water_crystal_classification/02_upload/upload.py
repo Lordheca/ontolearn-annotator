@@ -25,6 +25,8 @@ IMAGE_EXTENSIONS = {".jpg",".jpeg",".png", ".gif", ".bmp", ".webp", ".tiff"}
 LABEL_EXTENSIONS = {".csv", ".xlsx"}
 NAME_HEADERS = {"image_name", "img_name"}
 LABEL_HEADERS = {"label"}
+#At most this many messages of one kinf are listed; the totals are in the summary.
+MAX_LISTED = 15
 POLL_SECONDS = 20
 
 def patch_source(source_id, payload):
@@ -136,15 +138,18 @@ def read_label_file(path):
         return parse_label_rows(read_xlsx_rows(path))
     return parse_label_rows(read_csv_rows(path))
 
+def capped(messages, what):
+    """Keep the first MAX_LISTED messages and say how many were left out."""
+    if len(messages) <= MAX_LISTED:
+        return messages
+    return messages[:MAX_LISTED] + [f"... and {len(messages) - MAX_LISTED} more {what}"]
 
 def match_labels(entries, images):
     """Match label rows to images by file name (case-insensitive, folders ignored).
 
-    Returns (labels, problems). labels maps an image name, as in `images`, to its code.
+    Returns (labels, problems, counts). labels maps an image name, as in `images`, to its code.
     A file name that is ambiguous on either side gets no label and is reported.
     """
-    problems = []
-
     rows_by_key = {}  # file name in lower case -> the name as written and its codes
     for image_name, code in entries:
         file_name = os.path.basename(image_name.replace("\\", "/"))
@@ -155,22 +160,42 @@ def match_labels(entries, images):
     for name, _ in images:
         names_by_key.setdefault(os.path.basename(name).lower(), []).append(name)
 
-    labels = {}
+    labels, conflicts, not_in_zip = {}, [], []
     for key, row in rows_by_key.items():
         names = names_by_key.get(key, [])
         if len(row["codes"]) > 1:
-            problems.append(
+            conflicts.append(
                 f"{row['name']} has more than one label in the label file "
                 f"({', '.join(sorted(row['codes']))}); none was applied"
             )
         elif len(names) > 1:
-            problems.append(
+            conflicts.append(
                 f"Images {', '.join(sorted(names))} have the same file name; "
                 "the label was not applied to any of them"
             )
         elif names:
             labels[names[0]] = next(iter(row["codes"]))
-    return labels, problems
+        else:
+            not_in_zip.append(f"{row['name']} is in the label file but not in the zip")
+
+    without_label = [
+        f"{name} has no row in the label file; uploaded without expert category"
+        for key, names in names_by_key.items()
+        if key not in rows_by_key
+        for name in names
+    ]
+
+    problems = (
+        capped(conflicts, "labels that could not be applied")
+        + capped(not_in_zip, "rows of the label file with no image in the zip")
+        + capped(without_label, "images with no row in the label file")
+    )
+    counts = {
+        "notInZip": len(not_in_zip),
+        "withoutLabel": len(without_label),
+        "conflicts": len(conflicts),
+    }
+    return labels, problems, counts
 
 def resize_in_place(path):
     with Image.open(path) as image:
@@ -182,7 +207,10 @@ def resize_in_place(path):
 
 
 def upload_image(source_id, name, path, expert_code=None):
-    """POST one image to the platform. Returns None on success, or a problem string."""
+    """POST one image to the platform.
+
+    Returns (problem, expert). problem is None or a message. expert is "STORED",
+    "UNKNOWN_CODE", or None when no code was sent or the image was not stored."""
     content_type = mimetypes.guess_type(path)[0] or "application/octet-stream"
     with open(path, "rb") as f:
         response = requests.post(
@@ -193,16 +221,21 @@ def upload_image(source_id, name, path, expert_code=None):
         )
     if response.status_code == 409 and response.json().get("code") == "DUPLICATE":
         existing = response.json()["existing"]["name"]
-        return f"{name} is not unique in the existing sources (same image as {existing})"
+        problem = f"{name} is not unique in the existing sources (same image as {existing})"
+        if expert_code:
+            problem += "; its label was not applied"
+        return problem, None
     response.raise_for_status()
 
-    expert =  response.json().get("expertCategory")
-    if expert and not expert["stored"]:
-        return (
-            f"{name}: label '{expert['code']}' is not a class of this project; "
-            "uploaded without expert category"
-        )
-    return None
+    expert = response.json().get("expertCategory")
+    if not expert:
+        return None, None
+    if expert["stored"]:
+        return None, "STORED"
+    return (
+        f"{name}: label '{expert['code']}' is not a class of this project; "
+        "uploaded without expert category"
+    ), "UNKNOWN_CODE"
 
 
 def process_source(source):
@@ -235,6 +268,7 @@ def process_source(source):
         problems = [f"{name} is not an image and was skipped" for name in skipped]
 
         labels = {}  # image name -> class code given by the expert
+        label_summary = None  # filled in when one label file was read
         if len(label_files) > 1:
             problems.append(
                 f"More than one label file found ({', '.join(sorted(label_files))}); none was used"
@@ -243,20 +277,21 @@ def process_source(source):
             try:
                 entries = read_label_file(os.path.join(extract_dir, label_files[0]))
             except Exception as e:
-                entries = []
+                entries = None
                 problems.append(
                     f"The label file {label_files[0]} could not be read ({e}); "
                     "no categories were imported"
                 )
             else:
                 if entries is None:
-                    entries = []
                     problems.append(
                         f"The label file {label_files[0]} does not have the columns image_name "
                         "and label; no categories were imported"
                     )
-            labels, label_problems = match_labels(entries, images)
-            problems.extend(label_problems)
+            if entries is not None:
+                labels, label_problems, counts = match_labels(entries, images)
+                problems.extend(label_problems)
+                label_summary = {"file": label_files[0], "rows": len(entries), **counts}
 
         # Resize, then dedupe inside the zip on the resized bytes (the same bytes the
         # server will checksum, so both dedupe levels agree).
@@ -277,12 +312,27 @@ def process_source(source):
             unique[checksum] = (name, path)
 
         # Dedupe against the platform happens server-side (409 DUPLICATE).
+        stored, unknown_code = 0, []
         for name, path in unique.values():
-            problem = upload_image(source_id, name, path, labels.get(name))
-            if problem:
+            problem, expert = upload_image(source_id, name, path, labels.get(name))
+            if expert == "STORED":
+                stored += 1
+            elif expert == "UNKNOWN_CODE":
+                unknown_code.append(problem)
+            elif problem:
                 problems.append(problem)
+        problems.extend(
+            capped(unknown_code, "images with a label that is not a class of this project")
+        )
 
-    patch_source(source_id, {"status": "COMPLETED", "statusInfo": {"problems": problems}})
+    status_info = {"problems": problems}
+    if label_summary is not None:
+        # Labels that had an image but were not stored for another reason: conflicting
+        # rows, images sharing a file name, duplicate or unreadable images.
+        not_applied = label_summary.pop("conflicts") + len(labels) - stored - len(unknown_code)
+        label_summary.update(stored=stored, unknownCode=len(unknown_code), notApplied=not_applied)
+        status_info["labels"] = label_summary
+    patch_source(source_id, {"status": "COMPLETED", "statusInfo":status_info})
 
 
 while True:
