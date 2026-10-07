@@ -8,8 +8,10 @@ import zipfile
 import csv
 import re
 
+import openpyxl
 import requests
 from PIL import Image
+
 
 platformUrl = os.environ["PLATFORM_URL"]
 projectId = os.environ["PROJECT_ID"]
@@ -20,7 +22,7 @@ TARGET_SIZE = (360,240)
 IMAGE_EXTENSIONS = {".jpg",".jpeg",".png", ".gif", ".bmp", ".webp", ".tiff"}
 # Label file of an annotated zip: at the zip root, columns image_name;label
 # (or the client's own headers, Img_name / Label).
-LABEL_EXTENSIONS = {".csv"}
+LABEL_EXTENSIONS = {".csv", ".xlsx"}
 NAME_HEADERS = {"image_name", "img_name"}
 LABEL_HEADERS = {"label"}
 POLL_SECONDS = 20
@@ -47,13 +49,14 @@ def list_files(root):
 
     Returns (images, skipped). images is a list of (name, absolute_path) where name is
     the path relative to root (so files in sub-folders keep a readable name). macOS
-    metadata (__MACOSX/, ._*) and hidden files (.DS_Store) are ignored silently.
+    metadata (__MACOSX/, ._*), hidden files (.DS_Store) and Excel lock files (~$*) are ignored silently.
     """
     images, skipped = [], []
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = [d for d in dirnames if d != "__MACOSX"]
         for filename in filenames:
-            if filename.startswith("."):
+            # Hidden files, and the lock file Excel leaves next to an open workbook.
+            if filename.startswith(".") or filename.startswith("~$"):
                 continue
             absolute = os.path.join(dirpath, filename)
             name = os.path.relpath(absolute, root)
@@ -100,6 +103,14 @@ def read_csv_rows(path):
     delimiter = ";" if lines[0].count(";") >= lines[0].count(",") else ","
     return list(csv.reader(lines, delimiter=delimiter))
 
+def read_xlsx_rows(path):
+    # First sheet only. data_only reads the values of the cells, not their formulas.
+    workbook = openpyxl.load_workbook(path, read_only=True, data_only=True)
+    try:
+        return [list(row) for row in workbook.worksheets[0].iter_rows(values_only=True)]
+    finally:
+        workbook.close()
+
 
 def parse_label_rows(rows):
     """Return [(image_name, code), ...], or None if the two columns are missing."""
@@ -121,6 +132,8 @@ def parse_label_rows(rows):
 
 
 def read_label_file(path):
+    if os.path.splitext(path)[1].lower() == ".xlsx":
+        return parse_label_rows(read_xlsx_rows(path))
     return parse_label_rows(read_csv_rows(path))
 
 
@@ -227,15 +240,23 @@ def process_source(source):
                 f"More than one label file found ({', '.join(sorted(label_files))}); none was used"
             )
         elif label_files:
-            entries = read_label_file(os.path.join(extract_dir, label_files[0]))
-            if entries is None:
+            try:
+                entries = read_label_file(os.path.join(extract_dir, label_files[0]))
+            except Exception as e:
+                entries = []
                 problems.append(
-                    f"The label file {label_files[0]} does not have the columns image_name "
-                    "and label; no categories were imported"
+                    f"The label file {label_files[0]} could not be read ({e}); "
+                    "no categories were imported"
                 )
             else:
-                labels, label_problems = match_labels(entries, images)
-                problems.extend(label_problems)
+                if entries is None:
+                    entries = []
+                    problems.append(
+                        f"The label file {label_files[0]} does not have the columns image_name "
+                        "and label; no categories were imported"
+                    )
+            labels, label_problems = match_labels(entries, images)
+            problems.extend(label_problems)
 
         # Resize, then dedupe inside the zip on the resized bytes (the same bytes the
         # server will checksum, so both dedupe levels agree).
