@@ -33,8 +33,17 @@ async function storeImageSource(
 ): Promise<{ sourceId: string; dataFileId: string }> {
     const extension = extensionOf(file.name);
     const storageKey = `uploads/manual/${uuidv4()}.${extension}`;
+    
+    const metadata = opts?.expertClassTypeId && opts.expertCode
+        ? { "expert-catagory": opts.expertCode }
+        : undefined;
 
-    await putObject(storageKey, Buffer.from(await file.arrayBuffer()), file.type || "application/octet-stream");
+    await putObject(
+        storageKey,
+        Buffer.from(await file.arrayBuffer()),
+        file.type || "application/octet-stream",
+        metadata
+    );
 
     try {
         return await prisma.$transaction(async (tx) => {
