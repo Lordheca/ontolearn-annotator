@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { putObject, deleteObject } from "@/lib/storage";
 import { checkPermissionForApiKey } from "@/lib/abac-client";
 import { checkAccessOrRespond } from "@/lib/abac-route-guard";
+import { createExpertAnnotation, resolveExpertCode } from "@/lib/annotations";
 
 // Machine upload for the files extracted from a Source (today: upload.py unpacking a
 // zip-file Source). Replaces the legacy POST /api/v1/projects/[projectId]/data, which
@@ -12,6 +13,11 @@ import { checkAccessOrRespond } from "@/lib/abac-route-guard";
 // One image per request, multipart field "file". The bytes go to the bucket and a
 // DataFile is created under the Source. Its destination is inherited from the Source
 // (what the uploader picked in the form), never taken from the caller.
+//
+// Optional multipart field "expertCode": the class code the expert gave this image
+// (label file of an annotated zip). A known code is stored as an EXPERT annotation and
+// copied into the object metadata. An unknown code never blocks the image: it is stored
+// without category and the response says so.
 
 type Props = {
     params: {
@@ -74,6 +80,11 @@ export async function POST(request: Request, { params }: Props) {
         return json({ error: `Unsupported file extension '${extension}'` }, 400);
     }
 
+    const rawExpertCode = form.get("expertCode");
+    if (rawExpertCode !== null && typeof rawExpertCode !== "string") {
+        return json({ error: "Field 'expertCode' must be text" }, 400);
+    }
+
     const buffer = Buffer.from(await file.arrayBuffer());
 
     // Checksum computed here, not trusted from the caller. MD5 matches what upload.py
@@ -92,24 +103,48 @@ export async function POST(request: Request, { params }: Props) {
         return json({ code: "DUPLICATE", error: "Duplicate image", checksum, existing: duplicate }, 409);
     }
 
+    // Looked up after the duplicate check: a duplicate image never receives the label
+    // (the existing image may already have an expert category, which is immutable).
+    const expert = await resolveExpertCode(prisma, params.projectId, rawExpertCode);
+
     // Grouped by Source so everything a zip produced sits under one prefix.
     const storageKey = `uploads/zip/${source.id}/${uuidv4()}.${extension}`;
-    await putObject(storageKey, buffer, file.type || "application/octet-stream");
+    await putObject(
+        storageKey,
+        buffer,
+        file.type || "application/octet-stream",
+        expert.status === "FOUND" ? { "expert-category": expert.code } : undefined
+    );
 
     try {
-        const dataFile = await prisma.dataFile.create({
-            data: {
-                sourceId: source.id,
-                name: file.name,
-                filePath: storageKey,
-                type: "IMAGE",
-                destination: source.destination,
-                metadata: { checksum },
-            },
+        // One transaction: an image never exists without the expert category it came with.
+        const dataFile = await prisma.$transaction(async (tx) => {
+            const created = await tx.dataFile.create({
+                data: {
+                    sourceId: source.id,
+                    name: file.name,
+                    filePath: storageKey,
+                    type: "IMAGE",
+                    destination: source.destination,
+                    metadata: { checksum },
+                },
+            });
+            if (expert.status === "FOUND") {
+                await createExpertAnnotation(tx, created.id, expert.classTypeId);
+            }
+            return created;
         });
-        return json(dataFile, 201);
+
+        if (expert.status === "ABSENT") {
+            return json(dataFile, 201);
+        }
+        const expertCategory =
+            expert.status === "FOUND"
+                ? { stored: true, code: expert.code }
+                : { stored: false, reason: "UNKNOWN_CODE", code: expert.code };
+        return json({ ...dataFile, expertCategory }, 201);
     } catch (error) {
-        // Do not leave an orphan object in the bucket if the row could not be created.
+        // Do not leave an orphan object in the bucket if the rows could not be created.
         await deleteObject(storageKey).catch((e) =>
             console.error(`Failed to clean up ${storageKey} after DataFile create error:`, e)
         );

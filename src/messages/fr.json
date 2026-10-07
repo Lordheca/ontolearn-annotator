@@ -332,7 +332,15 @@
       "empty": "Aucun source disponible.",
       "name": "Nom",
       "status": "Statut",
+      "labels": "Catégories de l'expert",
       "uploadedAt": "Téléverser le"
+    },
+    "Labels": {
+      "stored": "{count, plural, =0 {Aucune catégorie d'expert importée} one {# catégorie d'expert importée} other {# catégories d'expert importées}}",
+      "unknownCode": "{count, plural, one {# étiquette ne correspond à aucune classe du projet} other {# étiquettes ne correspondent à aucune classe du projet}}",
+      "withoutLabel": "{count, plural, one {# image sans ligne dans le fichier d'étiquettes} other {# images sans ligne dans le fichier d'étiquettes}}",
+      "notApplied": "{count, plural, one {# étiquette n'a pas pu être appliquée} other {# étiquettes n'ont pas pu être appliquées}}",
+      "notInZip": "{count, plural, one {# ligne sans image dans le zip} other {# lignes sans image dans le zip}}"
     }
   },
   "SourceType": {

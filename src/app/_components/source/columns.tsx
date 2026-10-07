@@ -4,6 +4,56 @@ import { Source, SourceStatus } from "@prisma/client";
 import { ColumnDef } from "@tanstack/react-table";
 import { Loader2 } from "lucide-react";
 import { Badge } from "../ui/badge";
+import { useTranslations } from "next-intl";
+
+// Written by upload.py into Source.statusInfo.labels for an annotated zip.
+type LabelsSummary = {
+    stored: number;
+    unknownCode: number;
+    notInZip: number;
+    withoutLabel: number;
+    notApplied: number;
+};
+
+// statusInfo is free JSON: read it defensively, a missing count is 0.
+function readLabelsSummary(statusInfo: unknown): LabelsSummary | null {
+    if (!statusInfo || typeof statusInfo !== "object") return null;
+    const labels = (statusInfo as { labels?: unknown }).labels;
+    if (!labels || typeof labels !== "object") return null;
+
+    const values = labels as Record<string, unknown>;
+    const count = (key: string) => (typeof values[key] === "number" ? (values[key] as number) : 0);
+    return {
+        stored: count("stored"),
+        unknownCode: count("unknownCode"),
+        notInZip: count("notInZip"),
+        withoutLabel: count("withoutLabel"),
+        notApplied: count("notApplied"),
+    };
+}
+
+function LabelsSummaryCell({ statusInfo }: { statusInfo: unknown }) {
+    const t = useTranslations("Source.Labels");
+    const summary = readLabelsSummary(statusInfo);
+    if (!summary) {
+        return <span className="text-muted-foreground">—</span>;
+    }
+
+    const details: string[] = [];
+    if (summary.unknownCode > 0) details.push(t("unknownCode", { count: summary.unknownCode }));
+    if (summary.withoutLabel > 0) details.push(t("withoutLabel", { count: summary.withoutLabel }));
+    if (summary.notApplied > 0) details.push(t("notApplied", { count: summary.notApplied }));
+    if (summary.notInZip > 0) details.push(t("notInZip", { count: summary.notInZip }));
+
+    return (
+        <div>
+            <div>{t("stored", { count: summary.stored })}</div>
+            {details.length > 0 && (
+                <div className="text-sm text-muted-foreground">{details.join(" · ")}</div>
+            )}
+        </div>
+    );
+}
 
 export const sourceColumns: ColumnDef<Source>[] = [
     {
@@ -35,6 +85,11 @@ export const sourceColumns: ColumnDef<Source>[] = [
                     return <Badge variant="secondary">{status}</Badge>;
             }
         },
+    },
+    {
+        accessorKey: "statusInfo",
+        header: "labels",
+        cell: ({ row }) => <LabelsSummaryCell statusInfo={row.original.statusInfo} />,
     },
     {
         accessorKey: "uploadedAt",

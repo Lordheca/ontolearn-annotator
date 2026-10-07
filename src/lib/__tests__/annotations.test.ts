@@ -6,6 +6,7 @@ import {
   ExpertAnnotationExistsError,
   type AnnotationWithTypes,
   type PrismaTx,
+  resolveExpertCode,
 } from "../annotations";
 
 // In-memory stand-in for the two Prisma calls the helpers make.
@@ -176,5 +177,66 @@ describe("summarizeCategories", () => {
     const input = [ml("epp26-v1", "2026-10-02T00:00:00Z")];
     summarizeCategories(input);
     expect(input[0].annotationTypes.map((t) => t.rank)).toEqual([2, 1, 3]);
+  });
+});
+
+describe("resolveExpertCode", () => {
+  const classes = [
+    { id: "class-173", projectId: "project-a", code: "1.7.3", status: "ACTIVE" },
+    { id: "class-17", projectId: "project-a", code: "1.7", status: "ACTIVE" },
+    { id: "class-old", projectId: "project-a", code: "9", status: "INACTIVE" },
+    { id: "class-b", projectId: "project-b", code: "2.1", status: "ACTIVE" },
+  ];
+  const db = {
+    classType: {
+      findFirst: async ({ where }: any) =>
+        classes.find(
+          (c) =>
+            c.projectId === where.projectId && c.code === where.code && c.status === where.status
+        ) ?? null,
+    },
+  } as unknown as Pick<PrismaTx, "classType">;
+
+  it("finds an active class of the project by its code", async () => {
+    expect(await resolveExpertCode(db, "project-a", "1.7.3")).toEqual({
+      status: "FOUND",
+      code: "1.7.3",
+      classTypeId: "class-173",
+    });
+  });
+
+  it("accepts a parent class as well as a leaf", async () => {
+    expect(await resolveExpertCode(db, "project-a", "1.7")).toMatchObject({
+      status: "FOUND",
+      classTypeId: "class-17",
+    });
+  });
+
+  it("ignores spaces around the code", async () => {
+    expect(await resolveExpertCode(db, "project-a", " 1.7.3 ")).toMatchObject({ status: "FOUND" });
+  });
+
+  it("reports a code that is not a class of the project", async () => {
+    expect(await resolveExpertCode(db, "project-a", "9.9")).toEqual({
+      status: "UNKNOWN",
+      code: "9.9",
+    });
+  });
+
+  it("does not use a class of another project", async () => {
+    expect(await resolveExpertCode(db, "project-a", "2.1")).toEqual({
+      status: "UNKNOWN",
+      code: "2.1",
+    });
+  });
+
+  it("does not use a class that is not active", async () => {
+    expect(await resolveExpertCode(db, "project-a", "9")).toEqual({ status: "UNKNOWN", code: "9" });
+  });
+
+  it("treats a missing or blank code as absent", async () => {
+    expect(await resolveExpertCode(db, "project-a", null)).toEqual({ status: "ABSENT" });
+    expect(await resolveExpertCode(db, "project-a", undefined)).toEqual({ status: "ABSENT" });
+    expect(await resolveExpertCode(db, "project-a", "   ")).toEqual({ status: "ABSENT" });
   });
 });

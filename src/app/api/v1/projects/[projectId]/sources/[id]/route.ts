@@ -11,9 +11,22 @@ type Props = {
     };
 };
 
+// Summary of an annotated zip, written by upload.py: how many rows of the label file
+// ended up as expert categories, and why the others did not.
+const labelsSummarySchema = z.object({
+    file: z.string(),
+    rows: z.number().int().nonnegative(),
+    stored: z.number().int().nonnegative(),
+    unknownCode: z.number().int().nonnegative(),
+    notInZip: z.number().int().nonnegative(),
+    withoutLabel: z.number().int().nonnegative(),
+    notApplied: z.number().int().nonnegative(),
+})
+
 const statusInfoSchema = z.object({
     "message": z.string().optional(),
-    "problems": z.array(z.string()).optional()
+    "problems": z.array(z.string()).optional(),
+    "labels": labelsSummarySchema.optional()
 })
 
 export async function PATCH(request: Request, { params } : Props) {

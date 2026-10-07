@@ -304,7 +304,15 @@
     "Table": {
       "name": "名",
       "status": "ステータス",
+      "labels": "専門家のカテゴリ",
       "uploadedAt": "オンライン公開日"
+    },
+    "Labels": {
+      "stored": "{count, plural, =0 {専門家のカテゴリは取り込まれませんでした} other {専門家のカテゴリを#件取り込みました}}",
+      "unknownCode": "{count}件のラベルはこのプロジェクトのクラスではありません",
+      "withoutLabel": "{count}枚の画像はラベルファイルに行がありません",
+      "notApplied": "{count}件のラベルは適用できませんでした",
+      "notInZip": "{count}行はzip内に画像がありません"
     }
   },
   "SourceType": {

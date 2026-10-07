@@ -332,7 +332,15 @@
       "empty": "No sources available.",
       "name": "Name",
       "status": "Status",
+      "labels": "Expert categories",
       "uploadedAt": "Uploaded At"
+    },
+    "Labels": {
+      "stored": "{count, plural, =0 {No expert category imported} one {# expert category imported} other {# expert categories imported}}",
+      "unknownCode": "{count, plural, one {# label is not a class of this project} other {# labels are not classes of this project}}",
+      "withoutLabel": "{count, plural, one {# image has no row in the label file} other {# images have no row in the label file}}",
+      "notApplied": "{count, plural, one {# label could not be applied} other {# labels could not be applied}}",
+      "notInZip": "{count, plural, one {# row has no image in the zip} other {# rows have no image in the zip}}"
     }
   },
   "SourceType": {

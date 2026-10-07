@@ -21,6 +21,21 @@ vi.mock("@/env", () => ({
 }));
 
 import { putObject, getObjectStream, deleteObject } from "@/lib/storage";
+import { S3Client, HeadObjectCommand } from "@aws-sdk/client-s3";
+import { env } from "@/env";
+
+// storage.ts has no "read metadata" function (the app never needs one), so the test
+// asks the bucket directly.
+async function readMetadata(key: string) {
+  const client = new S3Client({
+    endpoint: env.S3_ENDPOINT,
+    region: env.S3_REGION,
+    forcePathStyle: env.S3_FORCE_PATH_STYLE,
+    credentials: { accessKeyId: env.S3_ACCESS_KEY, secretAccessKey: env.S3_SECRET_KEY },
+  });
+  const head = await client.send(new HeadObjectCommand({ Bucket: env.S3_BUCKET, Key: key }));
+  return head.Metadata ?? {};
+}
 
 describe("storage (S3/MinIO)", () => {
   it("round-trips a buffer through putObject/getObjectStream", async () => {
@@ -47,5 +62,25 @@ describe("storage (S3/MinIO)", () => {
     await deleteObject(key);
 
     await expect(getObjectStream(key)).rejects.toThrow();
+  });
+
+  it("stores the object metadata passed to putObject", async () => {
+    const key = `test/${Date.now()}-metadata.txt`;
+    await putObject(key, Buffer.from("with metadata"), "text/plain", {
+      "expert-category": "1.7.3",
+    });
+
+    expect(await readMetadata(key)).toEqual({ "expert-category": "1.7.3" });
+
+    await deleteObject(key);
+  });
+
+  it("stores no metadata when none is passed", async () => {
+    const key = `test/${Date.now()}-no-metadata.txt`;
+    await putObject(key, Buffer.from("without metadata"), "text/plain");
+
+    expect(await readMetadata(key)).toEqual({});
+
+    await deleteObject(key);
   });
 });
