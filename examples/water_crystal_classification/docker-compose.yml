@@ -18,3 +18,30 @@ services:
             - driver: nvidia
               capabilities: [gpu]
               count: 1
+  inference:
+    build:
+      context: .
+      dockerfile: ./03_inference/Dockerfile
+    volumes:
+      - ./03_inference:/app
+      # Folder with the model file and the classes.json of the same training run.
+      - ${MODEL_DIR:-./01_playground}:/model:ro
+    environment:
+      PROJECT_ID: ${PROJECT_ID}
+      PLATFORM_URL: ${PLATFORM_URL}
+      API_KEY: ${API_KEY}
+      MODEL_DIR: /model
+      MODEL_FILE: ${MODEL_FILE:-model.keras}
+      MODEL_VERSION: ${MODEL_VERSION}
+    # Lets the container reach a platform running on the host (npm run dev).
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: always
+    command: bash -c "python3 -u /app/inference.py"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
+              count: 1
