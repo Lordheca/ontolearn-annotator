@@ -468,6 +468,17 @@
     }
   },
   "Annotations": {
+    "suggestions": {
+      "label": "Suggested categories",
+      "expert": "Expert category",
+      "noExpert": "No expert category",
+      "model": "Model suggestion",
+      "pending": "Pending",
+      "pendingHelp": "The model has not classified this image yet. You can annotate it now.",
+      "modelVersion": "Model {version}",
+      "agree": "Expert and model agree",
+      "differ": "Expert and model differ"
+    },
     "title": "Project Annotations",
     "subtitle": "Manage and review image annotations for {projectName}",
     "stats": {

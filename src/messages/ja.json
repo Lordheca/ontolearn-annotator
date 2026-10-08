@@ -440,6 +440,17 @@
     }
   },
   "Annotations": {
+    "suggestions": {
+      "label": "推奨カテゴリ",
+      "expert": "専門家のカテゴリ",
+      "noExpert": "専門家のカテゴリはありません",
+      "model": "モデルの提案",
+      "pending": "処理待ち",
+      "pendingHelp": "モデルはまだこの画像を分類していません。今すぐアノテーションできます。",
+      "modelVersion": "モデル {version}",
+      "agree": "専門家とモデルの判断が一致しています",
+      "differ": "専門家とモデルの判断が異なります"
+    },
     "title": "プロジェクトアノテーション",
     "subtitle": "{projectName}の画像アノテーションを管理・確認",
     "stats": {

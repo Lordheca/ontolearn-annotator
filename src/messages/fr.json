@@ -419,6 +419,17 @@
     }
   },
   "Annotations": {
+    "suggestions": {
+      "label": "Catégories suggérées",
+      "expert": "Catégorie de l'expert",
+      "noExpert": "Aucune catégorie d'expert",
+      "model": "Suggestion du modèle",
+      "pending": "En attente",
+      "pendingHelp": "Le modèle n'a pas encore classé cette image. Vous pouvez l'annoter dès maintenant.",
+      "modelVersion": "Modèle {version}",
+      "agree": "L'expert et le modèle sont d'accord",
+      "differ": "L'expert et le modèle divergent"
+    },
     "title": "Annotations du Projet",
     "subtitle": "Gérer et examiner les annotations d'images pour {projectName}",
     "stats": {
