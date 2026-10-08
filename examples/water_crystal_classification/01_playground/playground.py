@@ -56,7 +56,7 @@ while True:
             # Resize the image (360, 240)
             target_width = 360
             target_height = 240
-            image = Image.open(BytesIO(download.content))
+            image = Image.open(BytesIO(download.content)).convert("RGB")
 
             # Resize the image
             resized_image = image.resize((target_width, target_height))
