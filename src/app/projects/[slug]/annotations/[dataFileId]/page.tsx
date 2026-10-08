@@ -5,6 +5,8 @@ import Link from "next/link";
 import { auth } from "@/server/auth";
 // Goes through the service so a denied project:read becomes null -> notFound().
 import { fetchProject } from "@/services/projects";
+import { summarizeCategories } from "@/lib/annotations";
+import { SuggestionsPanel } from "@/app/_components/annotations/suggestions-panel";
 
 async function fetchDataFile(projectId: string, dataFileId: string) {
   return prisma.dataFile.findFirst({
@@ -24,6 +26,22 @@ async function fetchAnnotations(projectId: string, dataFileId: string) {
       dataFileId,
       author: "USER",
       dataFile: { source: { projectId } },
+    },
+  });
+}
+
+async function fetchSuggestions(projectId: string, dataFileId: string) {
+  return prisma.annotation.findMany({
+    where: {
+      dataFileId,
+      author: { in: ["EXPERT", "ML"] },
+      dataFile: { source: { projectId } }
+    },
+    include: {
+      annotationTypes: {
+        include: { classType: true },
+        orderBy: { rank: "asc" },
+      },
     },
   });
 }
@@ -62,6 +80,8 @@ export default async function AnnotateDataFilePage({ params }: { params: { slug:
     return notFound();
   }
 
+  const categories = summarizeCategories(await fetchSuggestions(project.id, dataFileId));
+
   // Fetch workflow configuration from database
   const workflowYaml = await fetchWorkflowConfig(project.id);
 
@@ -74,7 +94,7 @@ export default async function AnnotateDataFilePage({ params }: { params: { slug:
         <h1 className="text-2xl font-bold">Annotate image</h1>
         <p className="text-gray-600">{dataFile.name}</p>
       </div>
-
+      <SuggestionsPanel categories={categories} />
       {annotations.length > 0 ? (
         <div className="mb-4 p-4 bg-yellow-100 border-l-4 border-yellow-500">
           <p className="text-yellow-800">
