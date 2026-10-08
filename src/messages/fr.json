@@ -79,6 +79,7 @@
       "batchFailed": "Ces images n’ont pas pu être envoyées :",
       "batchExpertCategory": "Catégorie de l’expert",
       "batchNoCategory": "Aucune catégorie",
+      "batchZipAlone": "Un fichier zip doit être envoyé seul, sans autres fichiers.",
       "errorOccurred": "Une erreur s'est produite.",
       "sourceType": "Type de source",
       "submit": "Téléverser",

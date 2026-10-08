@@ -14,13 +14,15 @@ export type ClassOption = { id: string; name: string; code: string | null };
 type Props = {
     items: BatchItem[];
     onItemsChange: (items: BatchItem[]) => void;
+    zipFile: File | null;
+    onZipChange: (file: File | null) => void;
     classTypes: ClassOption[];
     disabled?: boolean;
 };
 
 // File picker for ticket 06
 
-export default function BatchFileList({ items, onItemsChange, classTypes, disabled }: Props) {
+export default function BatchFileList({ items, onItemsChange, zipFile, onZipChange, classTypes, disabled }: Props) {
     const t = useTranslations("Data.Form");
     const [message, setMessage] = useState<string | null>(null);
     const [previews, setPreviews] =  useState<string[]>([]);
@@ -36,6 +38,18 @@ export default function BatchFileList({ items, onItemsChange, classTypes, disabl
     const addFiles = (chosen: FileList | null) => {
         if (!chosen) return;
         const list = Array.from(chosen);
+        const zips = list.filter((file) => file.name.toLowerCase().endsWith(".zip"));
+
+        if (zips.length > 0 || zipFile) {
+            if (zips.length === 1 && list.length === 1 && items.length === 0 && !zipFile) {
+                onZipChange(zips[0]);
+                setMessage(null);
+            } else {
+                setMessage(t("batchZipAlone"));
+            }
+            if (inputRef.current) inputRef.current.value = "";
+            return;
+        }
         const images = list.filter((file) => isImageFileName(file.name));
         const notImages = list.filter((file) => !isImageFileName(file.name));
 
@@ -70,7 +84,7 @@ export default function BatchFileList({ items, onItemsChange, classTypes, disabl
                 ref={inputRef}
                 type="file"
                 multiple
-                accept="image/*"
+                accept="image/*,.zip"
                 disabled={disabled}
                 onChange={(event) => addFiles(event.target.files)}
             />
@@ -78,6 +92,24 @@ export default function BatchFileList({ items, onItemsChange, classTypes, disabl
                 {t("batchHint", { max: MAX_BATCH_IMAGES })}
             </p>
             {message && <p className="text-sm text-destructive">{message}</p>}
+            {zipFile &&  (
+                <div className="flex items-center gap-3 rounded-md border p-2">
+                    <span className="flex-1 truncate text-sm">{zipFile.name}</span>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        disabled={disabled}
+                        onClick={() => {
+                            onZipChange(null);
+                            setMessage(null);
+                        }}
+                        aria-label={t("batchRemove")}
+                    >
+                        <X className="h-4 w-4" />
+                    </Button>
+                </div>
+            )}
 
             {items.length > 0 && (
                 <ul className="divide-y rounded-md border">

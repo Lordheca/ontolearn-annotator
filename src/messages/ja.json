@@ -79,6 +79,7 @@
       "batchFailed": "次の画像はアップロードできませんでした：",
       "batchExpertCategory": "専門家のカテゴリー",
       "batchNoCategory": "カテゴリーなし",
+      "batchZipAlone": "zipファイルは他のファイルと一緒にせず、単独でアップロードしてください。",
       "sourceType": "ソースタイプ",
       "submit": "アップロード",
       "title": "データのアップロード"

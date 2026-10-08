@@ -79,6 +79,7 @@
       "batchFailed": "These images could not be uploaded:",
       "batchExpertCategory": "Expert category",
       "batchNoCategory": "No category",
+      "batchZipAlone": "A zip file must be uploaded on its own, without other files.",
       "errorOccurred": "Error occurred.",
       "sourceType": "Source Type",
       "submit": "Upload",

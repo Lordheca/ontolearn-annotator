@@ -39,6 +39,7 @@ export default function UploadForm({ project, sourceTypes }: Props) {
     const [batchItems, setBatchItems] = useState<BatchItem[]>([]);
     const [classTypes, setClassTypes] = useState<ClassOption[]>([]);
     const [batchFailed, setBatchFailed] = useState<Array<{ name: string; reason: string }>>([]);
+    const [zipFile, setZipFile] = useState<File | null>(null);
 
     const form = useForm<z.infer<typeof createDataInputSchema>>({
         resolver: zodResolver(createDataInputSchema),
@@ -135,6 +136,15 @@ export default function UploadForm({ project, sourceTypes }: Props) {
             return;
         }
         event.preventDefault();
+        if (zipFile && selectedSourceType) {
+            const formData = new FormData();
+            formData.append('sourceTypeId', selectedSourceType.id);
+            formData.append('destination', 'MANUAL');
+            formData.append(`fields[${selectedSourceType.fields[0].id}]`, zipFile);
+            execute(formData);
+            return;
+        }
+
         if (batchItems.length === 0) return;
 
         const formData = new FormData();
@@ -190,6 +200,7 @@ export default function UploadForm({ project, sourceTypes }: Props) {
                                     const fields = sourceTypes.find((sourceType) => sourceType.id === value)?.fields || [];
                                     remove()
                                     setBatchItems([]);
+                                    setZipFile(null);
                                     setBatchFailed([]);
                                     fields.forEach((field) => {
                                         append({ id: field.id, value: '' })
@@ -202,13 +213,20 @@ export default function UploadForm({ project, sourceTypes }: Props) {
                     )}
                 />
                 {isBatch ? (
-                    <BatchFileList items={batchItems} onItemsChange={setBatchItems} classTypes={classTypes} disabled={batch.isPending} />
+                    <BatchFileList 
+                        items={batchItems} 
+                        onItemsChange={setBatchItems} 
+                        zipFile={zipFile}
+                        onZipChange={setZipFile}
+                        classTypes={classTypes} 
+                        disabled={batch.isPending || isPending} 
+                    />
                 ) : (
                     <UploadFields form={form} formFields={formFields} fields={fields} />
                 )}
                 <div className="flex justify-end">
                     {isBatch ? (
-                        <Button type="submit" disabled={batchItems.length === 0 || batch.isPending}>
+                        <Button type="submit" disabled={(batchItems.length === 0 && !zipFile) || batch.isPending || isPending}>
                             {t('submit')}
                         </Button>
                     ) : (
