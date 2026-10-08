@@ -94,7 +94,12 @@ export default async function AnnotateDataFilePage({ params }: { params: { slug:
         <h1 className="text-2xl font-bold">Annotate image</h1>
         <p className="text-gray-600">{dataFile.name}</p>
       </div>
-      <SuggestionsPanel categories={categories} />
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+          <div className="lg:w-72 lg:shrink-0">
+            <SuggestionsPanel categories={categories} />
+          </div>
+
+          <div className="flex-1 min-w-0">
       {annotations.length > 0 ? (
         <div className="mb-4 p-4 bg-yellow-100 border-l-4 border-yellow-500">
           <p className="text-yellow-800">
@@ -114,6 +119,8 @@ export default async function AnnotateDataFilePage({ params }: { params: { slug:
         workflowYaml={workflowYaml || undefined}
       />
       )}
+      </div>
+      </div>
     </div>
   );
 }
