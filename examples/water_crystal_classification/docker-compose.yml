@@ -24,8 +24,9 @@ services:
       dockerfile: ./03_inference/Dockerfile
     volumes:
       - ./03_inference:/app
-      # Folder with the model file and the classes.json of the same training run.
-      - ${MODEL_DIR:-./01_playground}:/model:ro
+      # Host folder, relative to this file. Not MODEL_DIR: that one is the worker's
+      # own variable (set to /model below) and may hold a path for a local run.
+      - ${INFERENCE_MODEL_DIR:-./01_playground}:/model:ro
     environment:
       PROJECT_ID: ${PROJECT_ID}
       PLATFORM_URL: ${PLATFORM_URL}

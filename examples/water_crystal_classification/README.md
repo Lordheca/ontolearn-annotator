@@ -66,7 +66,9 @@ python3 03_inference/inference.py
 ```
 
 With Docker, put the same variables in a `.env` file next to `docker-compose.yml`
-(`MODEL_DIR` defaults to `./01_playground`) and run:
+and run the commands below. The model folder is `./01_playground` unless
+`INFERENCE_MODEL_DIR` says otherwise (a path relative to `docker-compose.yml`);
+`MODEL_DIR` is ignored here.
 
 ```bash
 docker compose up -d --build inference

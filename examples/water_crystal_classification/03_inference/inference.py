@@ -162,10 +162,12 @@ def poll(model, codes, skip_until):
     todo = [d for d in data_files if d["id"] not in skip_until]
 
     if data_files and not todo:
-        log(
-            f"All {len(data_files)} pending image(s) failed recently and are waiting to be "
-            "retried; newer images may be waiting behind them."
-        )
+        # Only a full list can hide newer images behind the ones that keep failing.
+        if len(data_files) == LIST_LIMIT:
+            log(
+                f"All {LIST_LIMIT} listed images failed recently and are waiting to be "
+                "retried; newer images may be waiting behind them."
+            )
         return False
 
     done = 0
